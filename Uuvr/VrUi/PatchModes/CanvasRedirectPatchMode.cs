@@ -2,6 +2,7 @@
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using Uuvr.VrCamera;
 
 namespace Uuvr.VrUi.PatchModes;
 
@@ -51,7 +52,7 @@ public class CanvasRedirectPatchMode : UuvrBehaviour, VrUiPatchMode
     private void Awake()
     {
         _uiCaptureCamera = new GameObject("VrUiCaptureCamera").AddComponent<Camera>();
-        VrCamera.VrCamera.IgnoredCameras.Add(_uiCaptureCamera);
+        VrCameraManager.IgnoredCameras.Add(_uiCaptureCamera);
         _uiCaptureCamera.transform.parent = transform;
         _uiCaptureCamera.clearFlags = CameraClearFlags.SolidColor;
         _uiCaptureCamera.backgroundColor = Color.clear;

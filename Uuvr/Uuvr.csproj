@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Nullable>enable</Nullable>
-        <Configurations>legacy-il2cpp;modern-il2cpp;legacy-mono;modern-mono</Configurations>
+        <Configurations>legacy-mono;modern-mono</Configurations>
         <Platforms>AnyCPU</Platforms>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -20,14 +20,6 @@
         <Content Include="Assets\**" >
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
-    </ItemGroup>
-
-    <!--  Il2Cpp  -->
-    <PropertyGroup Condition=" '$(UnityBackend)' == 'il2cpp' ">
-        <TargetFramework>net6.0</TargetFramework>
-    </PropertyGroup>
-    <ItemGroup Condition=" '$(UnityBackend)' == 'il2cpp' ">
-        <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.692" />
     </ItemGroup>
 
     <!--  Mono  -->

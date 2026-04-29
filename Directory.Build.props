@@ -2,14 +2,7 @@
 <Project ToolsVersion="Current"
   xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <BepInExDir>C:\Users\rai\AppData\Roaming\raicuparta\rai-pal\data\mod-loaders\bepinex</BepInExDir>
-  </PropertyGroup>
-
-  <!--  Il2Cpp  -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'legacy-il2cpp' Or '$(Configuration)' == 'modern-il2cpp' ">
-    <UnityBackend>il2cpp</UnityBackend>
-    <UnityBackendFolderName>Il2Cpp</UnityBackendFolderName>
-    <DefineConstants>$(DefineConstants);CPP</DefineConstants>
+    <BepInExDir>$(MSBuildThisFileDirectory)build-output/bepinex</BepInExDir>
   </PropertyGroup>
 
   <!--  Mono  -->
@@ -20,13 +13,13 @@
   </PropertyGroup>
 
   <!--  Legacy (Unity 2019 or earlier)  -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'legacy-mono' Or '$(Configuration)' == 'legacy-il2cpp' ">
+  <PropertyGroup Condition=" '$(Configuration)' == 'legacy-mono' ">
     <UnityGeneration>legacy</UnityGeneration>
     <DefineConstants>$(DefineConstants);LEGACY</DefineConstants>
   </PropertyGroup>
 
   <!--  Modern (Unity 2020 or later)  -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'modern-mono' Or '$(Configuration)' == 'modern-il2cpp' ">
+  <PropertyGroup Condition=" '$(Configuration)' == 'modern-mono' ">
     <UnityGeneration>modern</UnityGeneration>
     <DefineConstants>$(DefineConstants);MODERN</DefineConstants>
   </PropertyGroup>

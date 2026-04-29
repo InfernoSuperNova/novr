@@ -70,7 +70,7 @@ public class ThingDisabler : UuvrBehaviour
             var gameObjectProperty = componentObject.GetType()
                 .GetProperty("gameObject", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
             if (gameObjectProperty == null) continue;
-            var gameObject = (GameObject)gameObjectProperty.GetValue(componentObject);
+            var gameObject = (GameObject)gameObjectProperty.GetValue(componentObject, null);
             if (gameObject == null) continue;
             gameObject.SetActive(false);
         }
@@ -90,7 +90,7 @@ public class ThingDisabler : UuvrBehaviour
             if (enabledProperty == null || !enabledProperty.CanWrite ||
                 enabledProperty.PropertyType != typeof(bool)) return;
 
-            enabledProperty.SetValue(componentObject, false);
+            enabledProperty.SetValue(componentObject, false, null);
         }
     }
 }

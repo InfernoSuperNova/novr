@@ -2,43 +2,46 @@
 using System;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 #endif
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Uuvr.VrCamera;
 
 public class VrCameraManager: MonoBehaviour
 {
-#if CPP
-    public VrCameraManager(IntPtr pointer) : base(pointer)
-    {
-    }
-#endif
 
-#if CPP
-    // At first this looks like it works with a Camera[],
-    // but Camera.GetAllCameras just fills the array with nulls
-    // unless we use Il2CppReferenceArray.
-    private Il2CppReferenceArray<Camera> _allCameras;
-#else
-    private Camera[] _allCameras;
-#endif
-    
+    private const string NuclearOptionMainCameraName = "Main Camera";
+    private const string NuclearOptionMenuCameraName = "Menu Camera";
+
+    public static HashSet<Camera> IgnoredCameras = new();
+    private void Start()
+    {
+        
+        
+    }
+
     private void Update()
     {
-        if (_allCameras == null || _allCameras.Length < Camera.allCamerasCount)
+        Camera[] cameras = new Camera[Camera.allCamerasCount];
+        Camera.GetAllCameras(cameras);
+
+        foreach (var camera in cameras)
         {
-            _allCameras = new Camera[Camera.allCamerasCount];
+            var gameObject = camera.gameObject;
+            if (gameObject.name is not (NuclearOptionMainCameraName or NuclearOptionMenuCameraName) || IgnoredCameras.Contains(camera)) continue;
+            HandleChildCameras(camera);
+            gameObject.AddComponent<VrCamera>();
+            IgnoredCameras.Add(camera);
         }
-        Camera.GetAllCameras(_allCameras);
-        
-        for (var index = 0; index < Camera.allCamerasCount; index ++)
+    }
+
+    private void HandleChildCameras(Camera parentCamera)
+    {
+        foreach (var child in parentCamera.GetComponentsInChildren<Camera>())
         {
-            var camera = _allCameras[index];
-            if (camera == null || camera.targetTexture != null || camera.stereoTargetEye == StereoTargetEyeMask.None) continue;
-            if (VrCamera.VrCameras.Contains(camera) || VrCamera.IgnoredCameras.Contains(camera)) continue;
-            
-            Debug.Log($"creating vr camera {camera.name}");
-            camera.gameObject.AddComponent<VrCamera>();
+            if (child != parentCamera && !IgnoredCameras.Contains(child)) 
+                child.gameObject.AddComponent<StereoCamera>();
         }
     }
 }

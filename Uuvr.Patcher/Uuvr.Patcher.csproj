@@ -2,7 +2,7 @@
     <PropertyGroup>
         <TargetFramework>net35</TargetFramework>
         <Nullable>enable</Nullable>
-        <Configurations>legacy-il2cpp;modern-il2cpp;legacy-mono;modern-mono</Configurations>
+        <Configurations>legacy-mono;modern-mono</Configurations>
         <Platforms>AnyCPU</Platforms>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -28,11 +28,6 @@
         <Content Include="classdata.tpk">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
-    </ItemGroup>
-
-    <!--  Il2Cpp  -->
-    <ItemGroup Condition=" '$(UnityBackend)' == 'il2cpp' ">
-        <PackageReference Include="BepInEx.Unity.Mono.Preloader" Version="6.0.0-be.674" IncludeAssets="compile"  />
     </ItemGroup>
 
     <!--  Mono  -->
