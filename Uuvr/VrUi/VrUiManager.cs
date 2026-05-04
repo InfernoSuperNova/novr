@@ -1,150 +1,85 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using BepInEx;
 using UnityEngine;
-using UnityEngine.UI;
-using Uuvr.VrUi.PatchModes;
+using UnityEngine.Rendering.Universal;
+using Uuvr.VrCamera;
 
 namespace Uuvr.VrUi;
 
 public class VrUiManager : UuvrBehaviour
 {
-#if CPP
-    public VrUiManager(System.IntPtr pointer) : base(pointer)
-    {
-    }
-#endif
 
-    private RenderTexture? _uiTexture;
-    private GameObject? _vrUiQuad;
-    private Renderer? _vrUiRenderer;
-    private GameObject? _uiContainer;
-    private CanvasRedirectPatchMode? _canvasRedirectPatchMode;
-    private ScreenMirrorPatchMode? _screenMirrorPatchMode;
-    private FollowTarget? _worldRenderModeFollowTarget;
-    private UiOverlayRenderMode? _uiOverlayRenderMode;
+    private Camera? _cockpitHudCamera;
+
+    public static VrUiManager I { get; private set; }
+
+    public Camera CockpitHudCamera => _cockpitHudCamera ??= CreateUiCamera("VrCockpitHudCamera", 100);  
+    public Camera HelmetHudCamera => CockpitHudCamera;
+
+    private Camera _cachedMainCamera;
 
     private void Start()
     {
-        SetUpUi();
-        OnSettingChanged();
+        I = this;
+        Create<PatchDispatcher>(transform);
         Create<VrUiCursor>(transform);
+        ConfigureUiCameras();
+        
     }
 
     protected override void OnSettingChanged()
     {
         base.OnSettingChanged();
-        var uiLayer = LayerHelper.GetVrUiLayer();
-
-        _vrUiQuad.layer = uiLayer;
-
-        _uiOverlayRenderMode.gameObject.SetActive(ModConfiguration.Instance.PreferredUiRenderMode.Value ==
-                                                  ModConfiguration.UiRenderMode.OverlayCamera);
-        _worldRenderModeFollowTarget.enabled = ModConfiguration.Instance.PreferredUiRenderMode.Value ==
-                                               ModConfiguration.UiRenderMode.InWorld;
-        if (ModConfiguration.Instance.PreferredUiRenderMode.Value != ModConfiguration.UiRenderMode.InWorld)
-        {
-            _worldRenderModeFollowTarget.transform.localPosition = Vector3.zero;
-            _worldRenderModeFollowTarget.transform.localRotation = Quaternion.identity;
-        }
-
-        _screenMirrorPatchMode.enabled = ModConfiguration.Instance.PreferredUiPatchMode.Value ==
-                                         ModConfiguration.UiPatchMode.Mirror;
-        _canvasRedirectPatchMode.enabled = ModConfiguration.Instance.PreferredUiPatchMode.Value ==
-                                           ModConfiguration.UiPatchMode.CanvasRedirect;
-
-        var uiTextureAspectRatio = (float) _uiTexture.height / _uiTexture.width;
-        var quadWidth = 1.8f * ModConfiguration.Instance.VrUiScale.Value;
-        var quadHeight = quadWidth * uiTextureAspectRatio;
-        _vrUiQuad.transform.localScale = new Vector3(quadWidth, quadHeight, 1f);
-
-        // For some reason I need to flip the UI upside down when using mirror mode.
-        var yScale = Mathf.Abs(_vrUiQuad.transform.localScale.y);
-        if (ModConfiguration.Instance.PreferredUiPatchMode.Value == ModConfiguration.UiPatchMode.Mirror)
-        {
-            yScale *= -1;
-        }
-
-        _vrUiQuad.transform.localScale =
-            new Vector3(_vrUiQuad.transform.localScale.x, yScale, _vrUiQuad.transform.localScale.z);
-        _vrUiQuad.transform.localPosition = ModConfiguration.Instance.VrUiPosition.Value;
-
-
-        if (_vrUiRenderer != null)
-        {
-            _vrUiRenderer.material.shader = GetVrUiShader();
-            _vrUiRenderer.material.renderQueue = ModConfiguration.Instance.VrUiRenderQueue.Value;
-        }
-
-        UpdateFollowTarget();
-    }
-
-    private static Shader GetVrUiShader()
-    {
-        if (ModConfiguration.Instance.VrUiShader.Value.IsNullOrWhiteSpace())
-            return Canvas.GetDefaultCanvasMaterial().shader;
-
-        var shader = Shader.Find(ModConfiguration.Instance.VrUiShader.Value);
-
-        return shader != null ? shader : Canvas.GetDefaultCanvasMaterial().shader;
-    }
-
-    private void SetUpUi()
-    {
-        _uiTexture = new RenderTexture(Screen.width, Screen.height, 16, RenderTextureFormat.ARGB32);
-
-        _uiContainer = new GameObject("VrUiContainer")
-        {
-            transform =
-            {
-                parent = transform
-            }
-        };
-
-        _vrUiQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        Destroy(_vrUiQuad.GetComponent("Collider"));
-        _vrUiQuad.name = "VrUiQuad";
-        _vrUiQuad.transform.parent = _uiContainer.transform;
-
-        _vrUiRenderer = _vrUiQuad.GetComponent<Renderer>();
-        _vrUiRenderer.material = new Material(Canvas.GetDefaultCanvasMaterial())
-        {
-            mainTexture = _uiTexture
-        };
-
-        _canvasRedirectPatchMode = gameObject.AddComponent<CanvasRedirectPatchMode>();
-        _canvasRedirectPatchMode.SetUpTargetTexture(_uiTexture);
-
-        _screenMirrorPatchMode = gameObject.AddComponent<ScreenMirrorPatchMode>();
-        _screenMirrorPatchMode.SetUpTargetTexture(_uiTexture);
-
-        _uiOverlayRenderMode = Create<UiOverlayRenderMode>(transform);
-        _worldRenderModeFollowTarget = _uiContainer.AddComponent<FollowTarget>();
+        ConfigureUiCameras();
     }
 
     private void Update()
     {
-        if (_uiTexture == null) SetUpUi();
-
-        if (
-            VrCamera.VrCamera.HighestDepthVrCamera != null &&
-            VrCamera.VrCamera.HighestDepthVrCamera.ParentCamera != null &&
-            _uiContainer != null &&
-            _uiContainer.transform.parent != VrCamera.VrCamera.HighestDepthVrCamera.ParentCamera.transform &&
-            _worldRenderModeFollowTarget != null)
-        {
-            UpdateFollowTarget();
-        }
+        ConfigureUiCameras();
+        if (_cachedMainCamera == null) UpdateMainCamera();
     }
 
-    private void UpdateFollowTarget()
+    private Camera CreateUiCamera(string cameraName, float depth)
     {
-        if (VrCamera.VrCamera.HighestDepthVrCamera == null ||
-            VrCamera.VrCamera.HighestDepthVrCamera.ParentCamera == null) return;
+        var poseDriver = Create<UuvrPoseDriver>(transform);
+        poseDriver.name = cameraName;
 
-        _worldRenderModeFollowTarget.Target = ModConfiguration.Instance.PreferredUiRenderMode.Value ==
-                                              ModConfiguration.UiRenderMode.InWorld
-            ? VrCamera.VrCamera.HighestDepthVrCamera.ParentCamera.transform
-            : null;
+        var camera = poseDriver.gameObject.AddComponent<Camera>();
+        var additionalCameraData = poseDriver.gameObject.AddComponent<UniversalAdditionalCameraData>();
+        VrCameraManager.IgnoredCameras.Add(camera);
+        
+
+        camera.stereoTargetEye = StereoTargetEyeMask.Both;
+        camera.targetTexture = null;
+        camera.clearFlags = CameraClearFlags.Depth;
+        camera.backgroundColor = Color.clear;
+        camera.depth = depth;
+        camera.allowHDR = false;
+        camera.allowMSAA = false;
+        camera.cullingMask = 1 << LayerHelper.GetVrUiLayer();
+        additionalCameraData.renderType = CameraRenderType.Overlay;
+
+        return camera;
+    }
+
+    private void UpdateMainCamera()
+    {
+        _cachedMainCamera = Camera.main;
+        var camAdditionalData = _cachedMainCamera.gameObject.GetComponent<UniversalAdditionalCameraData>();
+        camAdditionalData.cameraStack.Add(_cockpitHudCamera);
+    }
+
+    private void ConfigureUiCameras()
+    {
+        ConfigureUiCamera(CockpitHudCamera);
+    }
+
+    private static void ConfigureUiCamera(Camera camera)
+    {
+        
+        camera.clearFlags = CameraClearFlags.Depth;
+        camera.backgroundColor = Color.clear;
+        camera.targetTexture = null;
+        camera.nearClipPlane = 0.01f;
+        camera.farClipPlane = 10000f;
+        camera.rect = new Rect(0f, 0f, 1f, 1f);
     }
 }

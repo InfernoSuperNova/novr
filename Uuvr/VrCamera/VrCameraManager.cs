@@ -20,8 +20,8 @@ public class VrCameraManager: MonoBehaviour
         
         
     }
-
-    private void Update()
+    
+    private void Update() // Todo: Make me behave on events if possible
     {
         Camera[] cameras = new Camera[Camera.allCamerasCount];
         Camera.GetAllCameras(cameras);

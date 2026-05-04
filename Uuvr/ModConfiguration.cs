@@ -27,15 +27,6 @@ public class ModConfiguration
     }
 #endif
 
-    public enum ScreenSpaceCanvasType
-    {
-        [Description("None")] None,
-
-        [Description("Not rendering to texture")]
-        NotToTexture,
-        [Description("All")] All,
-    }
-
     public enum UiRenderMode
     {
         [Description("Overlay camera (draws on top of everything)")]
@@ -43,15 +34,6 @@ public class ModConfiguration
 
         [Description("In world (can be occluded)")]
         InWorld,
-    }
-
-    public enum UiPatchMode
-    {
-        [Description("Don't touch UI")] None,
-
-        [Description("Mirror flat screen (game not mirrored)")]
-        Mirror,
-        [Description("Patch Canvas objects")] CanvasRedirect,
     }
 
     public readonly ConfigFile Config;
@@ -69,9 +51,8 @@ public class ModConfiguration
     public readonly ConfigEntry<float> CameraPositionOffsetZ;
     public readonly ConfigEntry<bool> OverrideDepth;
     public readonly ConfigEntry<bool> PhysicsMatchHeadsetRefreshRate;
-    public readonly ConfigEntry<UiPatchMode> PreferredUiPatchMode;
     public readonly ConfigEntry<UiRenderMode> PreferredUiRenderMode;
-    public readonly ConfigEntry<ScreenSpaceCanvasType> ScreenSpaceCanvasTypesToPatch;
+    public readonly ConfigEntry<string> VrUiCanvasNames;
     public readonly ConfigEntry<string> ObjectsToDeactivateByComponent;
     public readonly ConfigEntry<string> ComponentsToDisable;
     public readonly ConfigEntry<float> ComponentSearchInterval;
@@ -154,12 +135,6 @@ public class ModConfiguration
             false,
             "Can help fix jiterriness in games that rely a lot on physics. Might break a lot of games too.");
 
-        PreferredUiPatchMode = config.Bind(
-            "UI",
-            "UI Patch Mode",
-            UiPatchMode.Mirror,
-            "Method to use for patching UI for VR.");
-
         VrUiLayerOverride = config.Bind(
             "UI",
             "VR UI Layer Override",
@@ -194,11 +169,11 @@ public class ModConfiguration
                 "Render queue to use for the VR UI projection. Default is 5000, which is the same as Unity's default canvas material.",
                 new AcceptableValueRange<int>(0, 5000)));
 
-        ScreenSpaceCanvasTypesToPatch = config.Bind(
+        VrUiCanvasNames = config.Bind(
             "UI",
-            "Screen-space UI Elements to Patch",
-            ScreenSpaceCanvasType.NotToTexture,
-            "Screen-space UI elements are already visible in VR with no patches. But in some games, they are difficult to see in VR. So you can choose to patch some (or all) of them to be rendered in the VR UI screen.");
+            "VR UI Canvas Names",
+            "MainCanvas",
+            "Slash-separated list of game canvas names to render into the VR UI texture. Example: 'MainCanvas/PauseCanvas'");
 
         PreferredUiRenderMode = config.Bind(
             "UI",

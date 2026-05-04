@@ -4,7 +4,7 @@ using BepInEx;
 using HarmonyLib;
 using Uuvr.VrCamera;
 using Uuvr.VrUi;
-using Uuvr.VrUi.PatchModes;
+using Uuvr.VrUi.SpecialBehavior;
 
 #if CPP
 using BepInEx.Unity.IL2CPP;
@@ -45,8 +45,11 @@ public class UuvrPlugin
         
 #if CPP
         ClassInjector.RegisterTypeInIl2Cpp<VrCamera.VrCamera>();
+        ClassInjector.RegisterTypeInIl2Cpp<VrCamera.StereoCamera>();
         ClassInjector.RegisterTypeInIl2Cpp<VrCameraOffset>();
-        ClassInjector.RegisterTypeInIl2Cpp<CanvasRedirect>();
+        ClassInjector.RegisterTypeInIl2Cpp<PatchDispatcher>();
+        ClassInjector.RegisterTypeInIl2Cpp<MainMenuBehaviour>();
+        ClassInjector.RegisterTypeInIl2Cpp<GameplayUIBehaviour>();
         ClassInjector.RegisterTypeInIl2Cpp<UiOverlayRenderMode>();
         ClassInjector.RegisterTypeInIl2Cpp<VrUiCursor>();
         ClassInjector.RegisterTypeInIl2Cpp<VrUiManager>();
@@ -57,8 +60,6 @@ public class UuvrPlugin
         ClassInjector.RegisterTypeInIl2Cpp<UuvrCore>();
         // ClassInjector.RegisterTypeInIl2Cpp<AdditionalCameraData>();
        ClassInjector.RegisterTypeInIl2Cpp<VrCameraManager>();
-       ClassInjector.RegisterTypeInIl2Cpp<CanvasRedirectPatchMode>();
-       ClassInjector.RegisterTypeInIl2Cpp<ScreenMirrorPatchMode>();
 #endif
 
         UuvrCore.Create();
