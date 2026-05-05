@@ -5,6 +5,8 @@
     <BepInExDir>$(MSBuildThisFileDirectory)build-output/bepinex</BepInExDir>
   </PropertyGroup>
 
+  <Import Project="$(MSBuildThisFileDirectory)NuclearOption.props" />
+
   <!--  Mono  -->
   <PropertyGroup Condition=" '$(Configuration)' == 'legacy-mono' Or '$(Configuration)' == 'modern-mono' ">
     <UnityBackend>mono</UnityBackend>
