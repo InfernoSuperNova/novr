@@ -10,7 +10,7 @@
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
         <DebugType>none</DebugType>
-        <OutputPath>$(BepInExDir)\mods\$(UnityBackendFolderName)\NOVR-$(UnityBackend)-$(UnityGeneration)\plugins</OutputPath>
+        <OutputPath>$(BepInExDir)/mods/$(UnityBackendFolderName)/NOVR-$(UnityBackend)-$(UnityGeneration)/plugins</OutputPath>
         <RootNamespace>NOVR</RootNamespace>
     </PropertyGroup>
 
@@ -18,7 +18,7 @@
 
     <!--  Mono  -->
     <PropertyGroup Condition=" '$(Configuration)' == 'legacy-mono' ">
-        <TargetFramework>net35</TargetFramework>
+        <TargetFramework>net48</TargetFramework>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'modern-mono' ">
         <TargetFramework>net48</TargetFramework>

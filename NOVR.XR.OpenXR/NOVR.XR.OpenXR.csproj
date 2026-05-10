@@ -10,12 +10,12 @@
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
         <DebugType>none</DebugType>
-        <OutputPath>$(BepInExDir)\mods\$(UnityBackendFolderName)\NOVR-$(UnityBackend)-$(UnityGeneration)\plugins</OutputPath>
+        <OutputPath>$(BepInExDir)/mods/$(UnityBackendFolderName)/NOVR-$(UnityBackend)-$(UnityGeneration)/plugins</OutputPath>
         <TargetFramework>net48</TargetFramework>
         <RootNamespace>NOVROpenXr</RootNamespace>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition=" '$(NuclearOptionGameDirResolved)' == 'NUCLEAR_OPTION_NOT_FOUND' ">
         <Reference Include="..\lib\$(UnityBackend)\$(UnityGeneration)\*.dll">
             <Private>False</Private>
         </Reference>

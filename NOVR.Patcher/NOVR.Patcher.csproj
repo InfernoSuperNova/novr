@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net35</TargetFramework>
+        <TargetFramework>net48</TargetFramework>
         <Nullable>enable</Nullable>
         <Configurations>legacy-mono;modern-mono</Configurations>
         <Platforms>AnyCPU</Platforms>
@@ -10,7 +10,7 @@
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
         <DebugType>none</DebugType>
-        <OutputPath>$(BepInExDir)\mods\$(UnityBackendFolderName)\NOVR-$(UnityBackend)-$(UnityGeneration)\patchers</OutputPath>
+        <OutputPath>$(BepInExDir)/mods/$(UnityBackendFolderName)/NOVR-$(UnityBackend)-$(UnityGeneration)/patchers</OutputPath>
         <RootNamespace>NOVRPatcher</RootNamespace>
     </PropertyGroup>
     

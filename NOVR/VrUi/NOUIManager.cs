@@ -27,10 +27,10 @@ public class NOUIManager : UuvrBehaviour
     private void Start()
     {
         I = this;
-        Create<PatchDispatcher>(transform);
+        Create<UIBehaviorPatcher>(transform);
+        UIBehaviorPatcher.DoPatching();
         Create<VrUiCursor>(transform);
         ConfigureUiCameras();
-        
     }
 
     protected override void OnSettingChanged()

@@ -2,10 +2,9 @@ using UnityEngine;
 
 namespace NOVR.VrUi.SpecialBehavior;
 
-public class HMDBehavior : MonoBehaviour
+public class NOVRHMDBehavior : UIRenderedCanvasBehavior
 {
-
-    private Camera HmdCamera => NOUIManager.I.CockpitHudCamera;
+    
     
     private float _offset = 1000;
 
@@ -14,18 +13,18 @@ public class HMDBehavior : MonoBehaviour
         var uiCam = NOUIManager.I.CockpitHudCamera;
         transform.position = uiCam.transform.forward * _offset;
         transform.rotation = uiCam.transform.rotation;
-
+        
         SetLocalPosition("Speed", new Vector3(-110f, 150f, 0f)); // TODO: Patch game files and use events to set these gameobjects
         SetLocalPosition("Altitude", new Vector3(110f, 150f, 0f));
         SetLocalPosition("Bearing", new Vector3(0f, 200f, 0f));
         SetLocalPosition("Artificial Horizon", new Vector3(0f, 150f, 0f));
-
+        
         SetLocalPositionRotationAndScale(
             "TopRightPanel",
             new Vector3(200f, -50f, -500f),
             new Vector3(0f, 45f, 0f),
             new Vector3(0.3f, 0.3f, 0.3f));
-
+        
         SetLocalPositionRotationAndScale(
             "LowerLeftPanel",
             new Vector3(-200f, -110f, -500f),
