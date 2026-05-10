@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And '$(NuclearOptionGameDir)' != ''">$(NuclearOptionGameDir)</NuclearOptionGameDirResolved>
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And '$(NUCLEAR_OPTION_GAME_DIR)' != ''">$(NUCLEAR_OPTION_GAME_DIR)</NuclearOptionGameDirResolved>
+
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And Exists('$(HOME)/Locations/NuclearOption/Install/NuclearOption_Data/Managed')">$(HOME)/Locations/NuclearOption/Install</NuclearOptionGameDirResolved>
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And Exists('$(HOME)/.steam/steam/steamapps/common/Nuclear Option/NuclearOption_Data/Managed')">$(HOME)/.steam/steam/steamapps/common/Nuclear Option</NuclearOptionGameDirResolved>
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And Exists('$(HOME)/.steam/debian-installation/steamapps/common/Nuclear Option/NuclearOption_Data/Managed')">$(HOME)/.steam/debian-installation/steamapps/common/Nuclear Option</NuclearOptionGameDirResolved>
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And Exists('$(HOME)/.local/share/Steam/steamapps/common/Nuclear Option/NuclearOption_Data/Managed')">$(HOME)/.local/share/Steam/steamapps/common/Nuclear Option</NuclearOptionGameDirResolved>
+
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And Exists('C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed')">C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option</NuclearOptionGameDirResolved>
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And Exists('C:\Program Files\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed')">C:\Program Files\Steam\steamapps\common\Nuclear Option</NuclearOptionGameDirResolved>
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == '' And Exists('D:\SteamLibrary\steamapps\common\Nuclear Option\NuclearOption_Data\Managed')">D:\SteamLibrary\steamapps\common\Nuclear Option</NuclearOptionGameDirResolved>
+
+    <NuclearOptionGameDirResolved Condition="'$(NuclearOptionGameDirResolved)' == ''">NUCLEAR_OPTION_NOT_FOUND</NuclearOptionGameDirResolved>
+
+    <NuclearOptionManagedDir>$(NuclearOptionGameDirResolved)/NuclearOption_Data/Managed</NuclearOptionManagedDir>
+    <NuclearOptionBepInExCoreDir>$(NuclearOptionGameDirResolved)/BepInEx/core</NuclearOptionBepInExCoreDir>
+    <NuclearOptionPluginDir Condition="'$(NuclearOptionPluginDir)' == '' And '$(NuclearOptionGameDirResolved)' != 'NUCLEAR_OPTION_NOT_FOUND'">$(NuclearOptionGameDirResolved)/BepInEx/plugins/NOVR</NuclearOptionPluginDir>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(NuclearOptionGameDirResolved)' != 'NUCLEAR_OPTION_NOT_FOUND'">
+    <Reference Include="$(NuclearOptionManagedDir)/*.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(NuclearOptionBepInExCoreDir)/*.dll" Exclude="$(NuclearOptionBepInExCoreDir)/0Harmony20.dll">
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

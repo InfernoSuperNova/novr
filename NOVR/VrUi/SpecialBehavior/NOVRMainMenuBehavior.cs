@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace NOVR.VrUi.SpecialBehavior;
 
-public class MainMenuPatch : MonoBehaviour
+public class NOVRMainMenuBehavior : UIRenderedCanvasBehavior
 {
     private void Start()
     {

@@ -384,3 +384,7 @@ FodyWeavers.xsd
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# Local/generated mod build outputs
+build-output/
+**/C:/

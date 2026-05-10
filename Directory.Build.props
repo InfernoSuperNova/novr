@@ -2,7 +2,9 @@
 <Project ToolsVersion="Current"
   xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <BepInExDir>$(MSBuildThisFileDirectory)build-output/bepinex</BepInExDir>
+    <BepInExDir Condition="'$(BepInExDir)' == ''">$(MSBuildThisFileDirectory)build-output/bepinex</BepInExDir>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/C:/**;$(MSBuildThisFileDirectory)build-output/**</DefaultItemExcludes>
+    <DefaultExcludesInProjectFolder>$(DefaultExcludesInProjectFolder);**/C:/**;$(MSBuildThisFileDirectory)build-output/**</DefaultExcludesInProjectFolder>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)NuclearOption.props" />
