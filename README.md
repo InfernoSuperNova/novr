@@ -1,9 +1,7 @@
 # [Nuclear Option](https://store.steampowered.com/app/2168680/Nuclear_Option/) VR
 
 ### A reworked version of [UUVR](https://github.com/Raicuparta/uuvr)  designed and optimized for Nuclear Option, fixing up the many options caused by UUVR. 
-*To be clear, I have no problems with UUVR. It's an incredible piece of software, but it's more of a generalist prototyping tool more than a long term patch.*
 
-Installer coming soon. The installer is planned to be a single-file GUI app for Windows and Linux.
 
 ## Building
 
