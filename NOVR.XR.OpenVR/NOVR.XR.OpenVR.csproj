@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Nullable>enable</Nullable>
-        <Configurations>legacy-mono;modern-mono</Configurations>
         <Platforms>AnyCPU</Platforms>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -10,14 +9,15 @@
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
         <DebugType>none</DebugType>
-        <OutputPath>$(BepInExDir)/mods/$(UnityBackendFolderName)/NOVR-$(UnityBackend)-$(UnityGeneration)/plugins</OutputPath>
+        <OutputPath>$(BuildOutputDir)/plugins</OutputPath>
+        <BepInExDeployDir>$(NuclearOptionPluginDir)</BepInExDeployDir>
         <TargetFramework>net48</TargetFramework>
         <DefineConstants>$(DefineConstants);UNITY_2017_2_OR_NEWER;UNITY_2020_1_OR_NEWER;UNITY_2018_3_OR_NEWER</DefineConstants>
         <RootNamespace>NOVRXrPlugin</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup Condition=" '$(NuclearOptionGameDirResolved)' == 'NUCLEAR_OPTION_NOT_FOUND' ">
-        <Reference Include="..\lib\$(UnityBackend)\$(UnityGeneration)\*.dll">
+        <Reference Include="$(NuclearOptionFallbackLibDir)/*.dll">
             <Private>False</Private>
         </Reference>
     </ItemGroup>

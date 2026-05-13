@@ -2,29 +2,24 @@
 <Project ToolsVersion="Current"
   xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <BepInExDir Condition="'$(BepInExDir)' == ''">$(MSBuildThisFileDirectory)build-output/bepinex</BepInExDir>
+    <BuildOutputDir Condition="'$(BuildOutputDir)' == ''">$(MSBuildThisFileDirectory)build-output</BuildOutputDir>
+    <NuclearOptionFallbackLibDir>$(MSBuildThisFileDirectory)lib/mono/modern</NuclearOptionFallbackLibDir>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/C:/**;$(MSBuildThisFileDirectory)build-output/**</DefaultItemExcludes>
     <DefaultExcludesInProjectFolder>$(DefaultExcludesInProjectFolder);**/C:/**;$(MSBuildThisFileDirectory)build-output/**</DefaultExcludesInProjectFolder>
+    <DefineConstants>$(DefineConstants);MONO;MODERN</DefineConstants>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)NuclearOption.props" />
 
-  <!--  Mono  -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'legacy-mono' Or '$(Configuration)' == 'modern-mono' ">
-    <UnityBackend>mono</UnityBackend>
-    <UnityBackendFolderName>Mono</UnityBackendFolderName>
-    <DefineConstants>$(DefineConstants);MONO</DefineConstants>
-  </PropertyGroup>
+  <Target Name="DeployToBepInEx" AfterTargets="Build" Condition="'$(BepInExDeployDir)' != '' And '$(NuclearOptionGameDirResolved)' != 'NUCLEAR_OPTION_NOT_FOUND'">
+    <ItemGroup>
+      <BepInExDeployFiles Include="$(TargetDir)**/*" />
+    </ItemGroup>
 
-  <!--  Legacy (Unity 2019 or earlier)  -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'legacy-mono' ">
-    <UnityGeneration>legacy</UnityGeneration>
-    <DefineConstants>$(DefineConstants);LEGACY</DefineConstants>
-  </PropertyGroup>
-
-  <!--  Modern (Unity 2020 or later)  -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'modern-mono' ">
-    <UnityGeneration>modern</UnityGeneration>
-    <DefineConstants>$(DefineConstants);MODERN</DefineConstants>
-  </PropertyGroup>
+    <MakeDir Directories="$(BepInExDeployDir)" />
+    <Copy
+      SourceFiles="@(BepInExDeployFiles)"
+      DestinationFiles="@(BepInExDeployFiles->'$(BepInExDeployDir)/%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

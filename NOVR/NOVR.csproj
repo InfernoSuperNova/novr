@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Nullable>enable</Nullable>
-        <Configurations>legacy-mono;modern-mono</Configurations>
+        <TargetFramework>net48</TargetFramework>
         <Platforms>AnyCPU</Platforms>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -10,26 +10,19 @@
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
         <DebugType>none</DebugType>
-        <OutputPath>$(BepInExDir)/mods/$(UnityBackendFolderName)/NOVR-$(UnityBackend)-$(UnityGeneration)/plugins</OutputPath>
+        <OutputPath>$(BuildOutputDir)/plugins</OutputPath>
+        <BepInExDeployDir>$(NuclearOptionPluginDir)</BepInExDeployDir>
         <RootNamespace>NOVR</RootNamespace>
     </PropertyGroup>
-
-<!--    <Import Project="LocalPaths.props" Condition="Exists('LocalPaths.props')" />-->
-
-    <!--  Mono  -->
-    <PropertyGroup Condition=" '$(Configuration)' == 'legacy-mono' ">
-        <TargetFramework>net48</TargetFramework>
-    </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)' == 'modern-mono' ">
-        <TargetFramework>net48</TargetFramework>
-    </PropertyGroup>
-<!--    <ItemGroup Condition=" '$(UnityBackend)' == 'mono' ">-->
-<!--        <PackageReference Include="BepInEx.Core" Version="5.4.16" />-->
-<!--    </ItemGroup>-->
-
-    <!--  Modern  -->
-    <ItemGroup Condition=" '$(UnityGeneration)' == 'modern' ">
+    <ItemGroup>
         <ProjectReference Include="..\NOVR.XR.OpenVR\NOVR.XR.OpenVR.csproj" />
         <ProjectReference Include="..\NOVR.XR.OpenXR\NOVR.XR.OpenXR.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="Assets\**\*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>Assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Content>
     </ItemGroup>
 </Project>

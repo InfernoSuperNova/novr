@@ -2,7 +2,6 @@
     <PropertyGroup>
         <TargetFramework>net48</TargetFramework>
         <Nullable>enable</Nullable>
-        <Configurations>legacy-mono;modern-mono</Configurations>
         <Platforms>AnyCPU</Platforms>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -10,13 +9,14 @@
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
         <DebugType>none</DebugType>
-        <OutputPath>$(BepInExDir)/mods/$(UnityBackendFolderName)/NOVR-$(UnityBackend)-$(UnityGeneration)/patchers</OutputPath>
+        <OutputPath>$(BuildOutputDir)/patchers</OutputPath>
+        <BepInExDeployDir>$(NuclearOptionPatcherDir)</BepInExDeployDir>
         <RootNamespace>NOVRPatcher</RootNamespace>
     </PropertyGroup>
     
     <ItemGroup>
         <PackageReference Include="AssetsTools.NET" Version="2.0.9" />
-        <Reference Include="lib\$(UnityBackend)\$(UnityGeneration)/*.dll">
+        <Reference Include="$(NuclearOptionFallbackLibDir)/*.dll">
             <Private>False</Private>
         </Reference>
     </ItemGroup>
@@ -30,8 +30,7 @@
         </Content>
     </ItemGroup>
 
-    <!--  Mono  -->
-    <ItemGroup Condition=" '$(UnityBackend)' == 'mono' ">
+    <ItemGroup>
         <PackageReference Include="Mono.Cecil" Version="0.10.4" IncludeAssets="compile" />
     </ItemGroup>
 </Project>

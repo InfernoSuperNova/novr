@@ -18,9 +18,10 @@
     <NuclearOptionManagedDir>$(NuclearOptionGameDirResolved)/NuclearOption_Data/Managed</NuclearOptionManagedDir>
     <NuclearOptionBepInExCoreDir>$(NuclearOptionGameDirResolved)/BepInEx/core</NuclearOptionBepInExCoreDir>
     <NuclearOptionPluginDir Condition="'$(NuclearOptionPluginDir)' == '' And '$(NuclearOptionGameDirResolved)' != 'NUCLEAR_OPTION_NOT_FOUND'">$(NuclearOptionGameDirResolved)/BepInEx/plugins/NOVR</NuclearOptionPluginDir>
+    <NuclearOptionPatcherDir Condition="'$(NuclearOptionPatcherDir)' == '' And '$(NuclearOptionGameDirResolved)' != 'NUCLEAR_OPTION_NOT_FOUND'">$(NuclearOptionGameDirResolved)/BepInEx/patchers/NOVR</NuclearOptionPatcherDir>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(NuclearOptionGameDirResolved)' != 'NUCLEAR_OPTION_NOT_FOUND'">
+  <ItemGroup Condition="'$(NuclearOptionGameDirResolved)' != 'NUCLEAR_OPTION_NOT_FOUND' And '$(SkipNuclearOptionReferences)' != 'true'">
     <Reference Include="$(NuclearOptionManagedDir)/*.dll">
       <Private>False</Private>
     </Reference>
