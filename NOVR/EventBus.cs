@@ -9,6 +9,7 @@ public class EventBus : MonoBehaviour
     #region API Properties
     public static Camera MainCamera => _previousMainCamera;
     public static Camera CockpitHudCamera => NOUIManager.I.CockpitHudCamera;
+    public static GameObject CockpitHudReference => NOUIManager.I.CockpitHudReference;
     #endregion
     
     

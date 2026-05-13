@@ -40,16 +40,19 @@ internal static class HUDUnitMarkerViewPositionPatch
         [HarmonyPrefix]
         private static bool Prefix(HUDUnitMarker __instance, FactionHQ hq, ref global::GlobalPosition viewPosition, ref Vector3 cameraForward)
         {
-            var realCameraPosition = EventBus.MainCamera.transform.GlobalPosition();
-            var realCameraForward = EventBus.MainCamera.transform.forward;
-            var screenSpacePosition = EventBus.CockpitHudCamera.transform.GlobalPosition();
-            var screenSpaceForward = EventBus.CockpitHudCamera.transform.forward;
+            var mainCamera = EventBus.MainCamera;
+            var screenSpaceCamera = EventBus.CockpitHudCamera;
 
-            GetTransform(__instance).rotation = EventBus.CockpitHudCamera.transform.rotation;
+            var realCameraPosition = mainCamera.transform.GlobalPosition();
+            var realCameraForward = mainCamera.transform.forward;
+            var screenSpacePosition = screenSpaceCamera.transform.GlobalPosition();
+            var screenSpaceForward = screenSpaceCamera.transform.forward;
+
+            GetTransform(__instance).rotation = screenSpaceCamera.transform.rotation;
             var targetInfo = (Text)TargetInfoField.GetValue(SceneSingleton<CombatHUD>.i);
             if (targetInfo != null)
             {
-                targetInfo.transform.rotation = EventBus.CockpitHudCamera.transform.rotation;
+                targetInfo.transform.rotation =screenSpaceCamera.transform.rotation;
             }
             
             if (GetHidden(__instance))
@@ -59,21 +62,21 @@ internal static class HUDUnitMarkerViewPositionPatch
               return false;
             if (__instance.selected)
             {
-              if (PinToScreenEdge(knownPosition.ToLocalPosition(), out Vector3 rayToScreen, out float arrowAngle))
+              if (PinToScreenEdge(knownPosition.ToLocalPosition(), out Vector3 rayToScreen, out float arrowAngle, mainCamera, screenSpaceCamera))
               {
                 __instance.image.enabled = false;
-                var mainCameraLocal = EventBus.MainCamera.transform.InverseTransformPoint(knownPosition.ToLocalPosition());
-                var hudCameraWorld = EventBus.CockpitHudCamera.transform.TransformPoint(mainCameraLocal);
-                SetTargetArrow(SceneSingleton<CombatHUD>.i, true, rayToScreen, hudCameraWorld, -EventBus.CockpitHudCamera.transform.forward);
+                var mainCameraLocal = mainCamera.transform.InverseTransformPoint(knownPosition.ToLocalPosition());
+                var hudCameraWorld = screenSpaceCamera.transform.TransformPoint(mainCameraLocal);
+                SetTargetArrow(SceneSingleton<CombatHUD>.i, true, rayToScreen, hudCameraWorld, -screenSpaceCamera.transform.forward, screenSpaceCamera);
               }
               else
               {
                 __instance.image.enabled = true;
                 
-                var mainCameraLocal = EventBus.MainCamera.transform.InverseTransformPoint(knownPosition.ToLocalPosition());
-                var hudCameraWorld = EventBus.CockpitHudCamera.transform.TransformPoint(mainCameraLocal);
+                var mainCameraLocal = mainCamera.transform.InverseTransformPoint(knownPosition.ToLocalPosition());
+                var hudCameraWorld = screenSpaceCamera.transform.TransformPoint(mainCameraLocal);
                 GetTransform(__instance).position = hudCameraWorld.normalized * HudDistance;
-                SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero);
+                SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero, screenSpaceCamera);
               }
               if (!__instance.unit.HasRadarEmission())
                 return false;
@@ -100,8 +103,8 @@ internal static class HUDUnitMarkerViewPositionPatch
             {
               if (!__instance.image.enabled)
                 __instance.image.enabled = true;
-              var mainCameraLocal = EventBus.MainCamera.transform.InverseTransformPoint(knownPosition.ToLocalPosition());
-              var hudCameraWorld = EventBus.CockpitHudCamera.transform.TransformPoint(mainCameraLocal);
+              var mainCameraLocal = mainCamera.transform.InverseTransformPoint(knownPosition.ToLocalPosition());
+              var hudCameraWorld = screenSpaceCamera.transform.TransformPoint(mainCameraLocal);
               GetTransform(__instance).position = hudCameraWorld.normalized * HudDistance;
               if (__instance.fresh)
               {
@@ -122,10 +125,8 @@ internal static class HUDUnitMarkerViewPositionPatch
 
 
         
-        private static bool PinToScreenEdge(Vector3 worldCoords, out Vector3 rayToScreen, out float arrowAngle)
+        private static bool PinToScreenEdge(Vector3 worldCoords, out Vector3 rayToScreen, out float arrowAngle, Component mainCamera, Component cockpitHudCamera)
         {
-            var mainCamera = EventBus.MainCamera;
-            var cockpitHudCamera = EventBus.CockpitHudCamera;
             var directionToTarget = worldCoords - mainCamera.transform.position;
             if (directionToTarget.sqrMagnitude <= Mathf.Epsilon)
             {
@@ -173,7 +174,7 @@ internal static class HUDUnitMarkerViewPositionPatch
         }
         
         
-        private static void SetTargetArrow(global::CombatHUD instance, bool enabled, Vector3 position, Vector3 targetPosition, Vector3 up)
+        private static void SetTargetArrow(global::CombatHUD instance, bool enabled, Vector3 position, Vector3 targetPosition, Vector3 up, Component screenSpaceCamera)
         {
             var targetArrow = (Image)TargetArrowField.GetValue(instance);
             var targetArrowTail = (Transform)TargetArrowTailField.GetValue(instance);
@@ -182,7 +183,7 @@ internal static class HUDUnitMarkerViewPositionPatch
             targetArrow.enabled = enabled;
             targetText.enabled = enabled;
             targetText.transform.position = targetArrowTail.position;
-            targetText.transform.rotation = EventBus.CockpitHudCamera.transform.rotation;
+            targetText.transform.rotation = screenSpaceCamera.transform.rotation;
             if (!enabled)
                 return;
 

@@ -69,7 +69,7 @@ public class VrUiCursor: UuvrBehaviour
             return;
         }
 
-        var uiCamera = NOUIManager.I.CockpitHudCamera;
+        var uiCamera = EventBus.CockpitHudCamera;
 
         EnsureCursorCanvas(uiCamera);
 
@@ -86,7 +86,7 @@ public class VrUiCursor: UuvrBehaviour
         }
         else
         {
-            var cam = _vrUiManager.CockpitHudCamera;
+            var cam = EventBus.CockpitHudCamera;
             var ray = cam.ScreenPointToRay(screenPos);
             pos = ray.origin + ray.direction * 2.5f;
         }

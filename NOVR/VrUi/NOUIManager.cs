@@ -7,12 +7,26 @@ namespace NOVR.VrUi;
 
 public class NOUIManager : UuvrBehaviour
 {
-
+    private const float SmoothingFactor = 10f;
     private Camera? _cockpitHudCamera;
+    private GameObject? _smoothedForwardReference;
 
     public static NOUIManager I { get; private set; }
 
     public Camera CockpitHudCamera => _cockpitHudCamera ??= CreateUiCamera("VrCockpitHudCamera", 100);
+    public GameObject CockpitHudReference => _smoothedForwardReference ??= CreateSmoothedForwardReference();
+
+    private GameObject CreateSmoothedForwardReference()
+    {
+        var go = new GameObject("SmoothedForwardReference");
+        go.transform.SetParent(transform);
+        
+        var cam = CockpitHudCamera;
+        go.transform.position = cam.transform.position;
+        go.transform.localRotation = cam.transform.localRotation;
+        return go;
+    }
+
     private new void Awake()
     {
         base.Awake();
@@ -42,7 +56,18 @@ public class NOUIManager : UuvrBehaviour
     private void Update()
     {
         ConfigureUiCameras();
+        UpdateSmoothedPosition();
     }
+    
+    private void UpdateSmoothedPosition()
+    {
+        var smoothedForwardReference = CockpitHudReference;
+        var cam = CockpitHudCamera;
+        smoothedForwardReference.transform.position = cam.transform.position;
+        smoothedForwardReference.transform.localRotation = Quaternion.Lerp(smoothedForwardReference.transform.localRotation, cam.transform.localRotation, Mathf.Clamp(Time.deltaTime * SmoothingFactor, 0, 1));
+    }
+
+    
 
     private Camera CreateUiCamera(string cameraName, float depth)
     {
