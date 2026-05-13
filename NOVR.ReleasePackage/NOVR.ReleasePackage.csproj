@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SkipNuclearOptionReferences>true</SkipNuclearOptionReferences>
+    <IsPackable>false</IsPackable>
+    <ReleasePackageDistDir>$(MSBuildThisFileDirectory)../dist</ReleasePackageDistDir>
+    <ReleasePackagePath>$(ReleasePackageDistDir)/NOVR.zip</ReleasePackagePath>
+    <ReleasePackageStagingDir>$(BaseIntermediateOutputPath)release-package</ReleasePackageStagingDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../NOVR/NOVR.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../NOVR.Patcher/NOVR.Patcher.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Target Name="CreateReleaseZip" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <MakeDir Directories="$(ReleasePackageDistDir)" />
+    <Delete Files="$(ReleasePackagePath)" />
+    <RemoveDir Directories="$(ReleasePackageStagingDir)" />
+    <MakeDir Directories="$(ReleasePackageStagingDir)/plugins;$(ReleasePackageStagingDir)/patchers" />
+
+    <ItemGroup>
+      <PluginPackageFiles Include="../build-output/plugins/**/*" />
+      <PatcherPackageFiles Include="../build-output/patchers/**/*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(PluginPackageFiles)" DestinationFiles="@(PluginPackageFiles->'$(ReleasePackageStagingDir)/plugins/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(PatcherPackageFiles)" DestinationFiles="@(PatcherPackageFiles->'$(ReleasePackageStagingDir)/patchers/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <ZipDirectory SourceDirectory="$(ReleasePackageStagingDir)" DestinationFile="$(ReleasePackagePath)" Overwrite="true" />
+  </Target>
+</Project>

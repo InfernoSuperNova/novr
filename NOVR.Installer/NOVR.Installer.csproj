@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <RuntimeIdentifiers>linux-x64;win-x64</RuntimeIdentifiers>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <SkipNuclearOptionReferences>true</SkipNuclearOptionReferences>
+    <RootNamespace>NOVR.Installer</RootNamespace>
+    <ApplicationIcon />
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <InstallerDistDir>$(MSBuildThisFileDirectory)../dist</InstallerDistDir>
+    <InstallerPublishIntermediateDir>$(BaseIntermediateOutputPath)publish</InstallerPublishIntermediateDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.6" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.6" />
+  </ItemGroup>
+
+  <Target Name="PublishInstallersToDist" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And '$(IsPublishingInstaller)' != 'true'">
+    <MakeDir Directories="$(InstallerDistDir)" />
+    <RemoveDir Directories="$(InstallerDistDir)/linux-x64;$(InstallerDistDir)/win-x64" />
+    <Delete Files="$(InstallerDistDir)/NOVR.Installer-Linux;$(InstallerDistDir)/NOVR.Installer-win.exe" />
+
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c $(Configuration) -r linux-x64 --no-restore -p:IsPublishingInstaller=true -p:PublishDir=&quot;$(InstallerPublishIntermediateDir)/linux-x64/&quot;" />
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c $(Configuration) -r win-x64 --no-restore -p:IsPublishingInstaller=true -p:PublishDir=&quot;$(InstallerPublishIntermediateDir)/win-x64/&quot;" />
+
+    <Copy SourceFiles="$(InstallerPublishIntermediateDir)/linux-x64/NOVR.Installer" DestinationFiles="$(InstallerDistDir)/NOVR.Installer-Linux" />
+    <Copy SourceFiles="$(InstallerPublishIntermediateDir)/win-x64/NOVR.Installer.exe" DestinationFiles="$(InstallerDistDir)/NOVR.Installer-Win.exe" />
+  </Target>
+</Project>
