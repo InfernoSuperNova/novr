@@ -7,7 +7,7 @@ namespace UnityEngine.XR.OpenXR
     /// </summary>
     [Serializable]
     public partial class OpenXRSettings : ScriptableObject
-    {
+    {   
         private static OpenXRSettings s_RuntimeInstance = null;
 
         private void Awake()

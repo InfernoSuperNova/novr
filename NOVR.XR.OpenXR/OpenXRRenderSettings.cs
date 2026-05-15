@@ -72,6 +72,7 @@ namespace UnityEngine.XR.OpenXR
         /// Enables XR_KHR_composition_layer_depth if possible and resolves or submits depth to OpenXR runtime.
         /// </summary>
         [SerializeField] private DepthSubmissionMode m_depthSubmissionMode = DepthSubmissionMode.None;
+        [SerializeField] private bool m_symmetricProjection;
 
         /// <summary>
         /// Enables XR_KHR_composition_layer_depth if possible and resolves or submits depth to OpenXR runtime.
@@ -94,8 +95,24 @@ namespace UnityEngine.XR.OpenXR
             }
         }
 
+        /// <summary>
+        /// Creates a stereo symmetric view in the OpenXR display provider.
+        /// </summary>
+        public bool symmetricProjection
+        {
+            get => m_symmetricProjection;
+            set
+            {
+                if (OpenXRLoaderBase.Instance != null)
+                    Internal_SetSymmetricProjection(value);
+                else
+                    m_symmetricProjection = value;
+            }
+        }
+
         private void ApplyRenderSettings()
         {
+            Internal_SetSymmetricProjection(m_symmetricProjection);
             Internal_SetRenderMode(m_renderMode);
             Internal_SetDepthSubmissionMode(m_depthSubmissionMode);
         }
@@ -113,5 +130,8 @@ namespace UnityEngine.XR.OpenXR
 
         [DllImport(LibraryName, EntryPoint = "NativeConfig_GetDepthSubmissionMode")]
         private static extern DepthSubmissionMode Internal_GetDepthSubmissionMode();
+
+        [DllImport(LibraryName, EntryPoint = "NativeConfig_SetSymmetricProjection")]
+        private static extern void Internal_SetSymmetricProjection([MarshalAs(UnmanagedType.I1)] bool enabled);
     }
 }

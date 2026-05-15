@@ -33,7 +33,7 @@ internal static class HUDBoresightStateViewPositionPatch
             if (boresight == null)
                 return;
 
-            boresight.transform.rotation = cockpitHudCamera.transform.rotation;
+            //boresight.transform.forward = cockpitHudCamera.transform.forward;
             var gunDirectionRelative = (Vector3)GunDirectionRelativeField.GetValue(__instance);
             var gunDirection = aircraft.transform.TransformDirection(gunDirectionRelative);
             var boresightWorldPosition = aircraft.transform.position + gunDirection * HudDistance;

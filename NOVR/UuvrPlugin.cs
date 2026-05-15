@@ -2,6 +2,7 @@
 using System.Reflection;
 using BepInEx;
 using HarmonyLib;
+using NOVR.Profiling;
 using NOVR.VrCamera;
 using NOVR.VrUi;
 using NOVR.VrUi.SpecialBehavior;
@@ -58,6 +59,7 @@ public class UuvrPlugin
         ClassInjector.RegisterTypeInIl2Cpp<UuvrPoseDriver>();
         ClassInjector.RegisterTypeInIl2Cpp<UuvrBehaviour>();
         ClassInjector.RegisterTypeInIl2Cpp<UuvrCore>();
+        ClassInjector.RegisterTypeInIl2Cpp<RenderProfiler>();
         // ClassInjector.RegisterTypeInIl2Cpp<AdditionalCameraData>();
        ClassInjector.RegisterTypeInIl2Cpp<VrCameraManager>();
 #endif

@@ -334,7 +334,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             Status = "Operation failed.";
-            Details = ex.Message;
+            Details = ex.Message; 
         }
         finally
         {

@@ -162,7 +162,13 @@ namespace UnityEngine.XR.OpenXR
             RegisterOpenXRCallbacks();
 
             if(null != OpenXRSettings.Instance)
+            {
+                Debug.Log($"[NOVR OpenXR] Applying settings: renderMode={OpenXRSettings.Instance.renderMode}, depthSubmissionMode={OpenXRSettings.Instance.depthSubmissionMode}, symmetricProjection={OpenXRSettings.Instance.symmetricProjection}");
+
                 OpenXRSettings.Instance.ApplySettings();
+
+                Debug.Log($"[NOVR OpenXR] Applied settings: renderMode={OpenXRSettings.Instance.renderMode}, depthSubmissionMode={OpenXRSettings.Instance.depthSubmissionMode}, symmetricProjection={OpenXRSettings.Instance.symmetricProjection}");
+            }
 
             if (!CreateSubsystems())
                 return false;

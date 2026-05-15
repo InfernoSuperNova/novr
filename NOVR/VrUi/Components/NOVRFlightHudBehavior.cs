@@ -23,6 +23,11 @@ public class NOVRFlightHudBehavior : UIRenderedCanvasBehavior
         var targetDesignator = FindChildStartingWith(transform, "targetDesignator");
         if (targetDesignator != null) targetDesignator.gameObject.AddComponent(typeof(NOVRTargetDesignatorBehavior));
 
+        if (!gameObject.TryGetComponent<PitchCompassBehavior>(out _))
+        {
+            gameObject.AddComponent<PitchCompassBehavior>();
+        }
+
         // var velocityVector = FindChildStartingWith(transform, "velocityVector");
         // if (velocityVector != null) velocityVector.gameObject.AddComponent(typeof(NOVRVelocityVectorBehavior));
     }

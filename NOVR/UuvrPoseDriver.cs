@@ -35,7 +35,14 @@ public class UuvrPoseDriver: UuvrBehaviour
             return;
         }
 
-        DisableCameraAutoTracking();
+        if (ModConfiguration.Instance.DisableUnityXrCameraAutoTracking.Value)
+        {
+            DisableCameraAutoTracking();
+        }
+        else
+        {
+            Debug.Log("[NOVR] Leaving Unity XR camera auto tracking enabled.");
+        }
     }
 
     protected override void OnBeforeRender()

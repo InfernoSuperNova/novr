@@ -1,6 +1,5 @@
 ﻿#if MODERN
 using System;
-using Unity.XR.OpenVR;
 using UnityEngine;
 using UnityEngine.XR.Management;
 
@@ -35,16 +34,16 @@ public abstract class XrPluginToggler: VrToggler
     protected override bool EnableVr()
     {
         _managerSetings.StartSubsystems();
-        var initializationSuccess = _managerSetings.activeLoader.Initialize();
-        var startSuccess = _managerSetings.activeLoader.Start();
-        return initializationSuccess && startSuccess;
+        return _managerSetings.activeLoader != null;
     }
 
     protected override bool DisableVr()
     {
-        var stopSuccess = _managerSetings.activeLoader.Stop();
-        var deinitializationSuccess = _managerSetings.activeLoader.Deinitialize();
-        return stopSuccess && deinitializationSuccess;
+        if (_managerSetings.activeLoader == null) return true;
+
+        _managerSetings.StopSubsystems();
+        _managerSetings.DeinitializeLoader();
+        return _managerSetings.activeLoader == null;
     }
 
     protected abstract XRLoader CreateLoader();

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reflection;
 using NOVR.VrCamera;
+using NOVR.Profiling;
 using NOVR.VrTogglers;
 using NOVR.VrUi;
 using UnityEngine;
@@ -33,6 +34,7 @@ public class Core: MonoBehaviour
         DontDestroyOnLoad(gameObject);
         gameObject.AddComponent<VrCameraManager>();
         gameObject.AddComponent<EventBus>();
+        gameObject.AddComponent<RenderProfiler>();
 
         // TODO: Emulate input.   
         // UuvrBehaviour.Create<UuvrInput>(transform);

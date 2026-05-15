@@ -1,15 +1,15 @@
 {
-  "name": "OpenXR XR Plugin",
-  "version": "1.2.8",
-  "libraryName": "UnityOpenXR",
-  "displays": [
-    {
-      "id": "OpenXR Display"
-    }
-  ],
-  "inputs": [
-    {
-      "id": "OpenXR Input"
-    }
-  ]
+    "name": "OpenXR XR Plugin",
+    "version": "1.17.0",
+    "libraryName": "UnityOpenXR",
+    "displays": [
+        {
+            "id": "OpenXR Display"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "OpenXR Input"
+        }
+    ]
 }

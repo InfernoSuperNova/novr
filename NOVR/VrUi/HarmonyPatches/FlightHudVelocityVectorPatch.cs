@@ -47,7 +47,7 @@ internal static class FlightHudVelocityVectorPatch
 
             velocityVector.enabled = true;
             velocityVector.transform.position = cockpitHudCamera.transform.TransformPoint(mainCameraLocalPosition).normalized * HudDistance;
-            velocityVector.transform.rotation = cockpitHudCamera.transform.rotation;
+            velocityVector.transform.forward = cockpitHudCamera.transform.forward;
         }
     }
 }

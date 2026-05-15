@@ -36,9 +36,19 @@ public class ModConfiguration
         InWorld,
     }
 
+    public enum RenderProfilerPatchMode
+    {
+        [Description("Unity lifecycle callbacks only")]
+        LifecycleCallbacks,
+
+        [Description("Every patchable method in selected assemblies")]
+        AllMethods,
+    }
+
     public readonly ConfigFile Config;
     public readonly ConfigEntry<CameraTrackingMode> CameraTracking;
     public readonly ConfigEntry<bool> RelativeCameraSetStereoView;
+    public readonly ConfigEntry<bool> DisableUnityXrCameraAutoTracking;
     public readonly ConfigEntry<int> VrCameraDepth;
     public readonly ConfigEntry<int> VrUiLayerOverride;
     public readonly ConfigEntry<Vector3> VrUiPosition;
@@ -56,6 +66,21 @@ public class ModConfiguration
     public readonly ConfigEntry<string> ObjectsToDeactivateByComponent;
     public readonly ConfigEntry<string> ComponentsToDisable;
     public readonly ConfigEntry<float> ComponentSearchInterval;
+    public readonly ConfigEntry<bool> RenderProfilerEnabled;
+    public readonly ConfigEntry<RenderProfilerPatchMode> RenderProfilerPatchModeSetting;
+    public readonly ConfigEntry<string> RenderProfilerAssemblies;
+    public readonly ConfigEntry<string> RenderProfilerMethodNames;
+    public readonly ConfigEntry<float> RenderProfilerReportInterval;
+    public readonly ConfigEntry<int> RenderProfilerMaxReportRows;
+    public readonly ConfigEntry<bool> RenderProfilerMainThreadOnly;
+    public readonly ConfigEntry<bool> RenderProfilerIncludeNovr;
+    public readonly ConfigEntry<string> RenderProfilerTypeNameContains;
+    public readonly ConfigEntry<string> RenderProfilerExcludeTypeNameContains;
+    public readonly ConfigEntry<string> RenderProfilerMethodNameContains;
+    public readonly ConfigEntry<string> RenderProfilerExcludeMethodNameContains;
+    public readonly ConfigEntry<bool> RenderProfilerPatchConstructors;
+    public readonly ConfigEntry<bool> RenderProfilerLogEachPatch;
+    public readonly ConfigEntry<bool> OpenXrSymmetricProjection;
 
 #if MODERN
     public readonly ConfigEntry<VrApi> PreferredVrApi;
@@ -90,6 +115,12 @@ public class ModConfiguration
             "Use SetStereoView for Relative Camera",
             false,
             "Some games are better with this on, some are better with this off. Just try it and see which one is better. Changing this might require restarting the level.");
+
+        DisableUnityXrCameraAutoTracking = config.Bind(
+            "Camera",
+            "Disable Unity XR Camera Auto Tracking",
+            true,
+            "Disables Unity's automatic XR camera tracking so NOVR can drive camera rotation manually. Turn off to test whether Unity's native camera tracking fixes Single Pass Instanced rendering.");
 
         AlignCameraToHorizon = config.Bind(
             "Camera",
@@ -205,5 +236,100 @@ public class ModConfiguration
             1f,
             new ConfigDescription("Value in seconds, the interval between searches for components to disable.",
                 new AcceptableValueRange<float>(0.5f, 30f)));
+
+        RenderProfilerEnabled = config.Bind(
+            "Profiler",
+            "Render Profiler Enabled",
+            false,
+            "Enables NOVR's Harmony-based render profiler. This can be very slow; leave off unless actively profiling.");
+
+        RenderProfilerPatchModeSetting = config.Bind(
+            "Profiler",
+            "Render Profiler Patch Mode",
+            RenderProfilerPatchMode.LifecycleCallbacks,
+            "LifecycleCallbacks patches common Unity callbacks. AllMethods attempts to patch every patchable method in selected assemblies.");
+
+        RenderProfilerAssemblies = config.Bind(
+            "Profiler",
+            "Render Profiler Assemblies",
+            "Assembly-CSharp",
+            "Slash-separated assembly names to patch. Example: 'Assembly-CSharp/NOVR'.");
+
+        RenderProfilerMethodNames = config.Bind(
+            "Profiler",
+            "Render Profiler Method Names",
+            "Update/LateUpdate/FixedUpdate/OnGUI/OnPreCull/OnPreRender/OnPostRender/OnRenderObject/OnWillRenderObject/OnRenderImage",
+            "Slash-separated method names to patch when patch mode is LifecycleCallbacks.");
+
+        RenderProfilerReportInterval = config.Bind(
+            "Profiler",
+            "Render Profiler Report Interval",
+            2f,
+            new ConfigDescription("Seconds between profiler log reports.",
+                new AcceptableValueRange<float>(0.25f, 60f)));
+
+        RenderProfilerMaxReportRows = config.Bind(
+            "Profiler",
+            "Render Profiler Max Report Rows",
+            40,
+            new ConfigDescription("Maximum number of slow methods to log per report.",
+                new AcceptableValueRange<int>(1, 500)));
+
+        RenderProfilerMainThreadOnly = config.Bind(
+            "Profiler",
+            "Render Profiler Main Thread Only",
+            true,
+            "Only records samples taken on Unity's main thread. Usually what you want for render/update profiling.");
+
+        RenderProfilerIncludeNovr = config.Bind(
+            "Profiler",
+            "Render Profiler Include NOVR",
+            false,
+            "Include NOVR methods in patching/reporting. Usually leave off to focus on the game.");
+
+        RenderProfilerTypeNameContains = config.Bind(
+            "Profiler",
+            "Render Profiler Type Name Contains",
+            "",
+            "Optional slash-separated type-name substrings to include. Empty includes all types in selected assemblies.");
+
+        RenderProfilerExcludeTypeNameContains = config.Bind(
+            "Profiler",
+            "Render Profiler Exclude Type Name Contains",
+            "<>c/<PrivateImplementationDetails>/NuclearOption.SceneLoading/NuclearOption.DedicatedServer/NuclearOption.SavedMission",
+            "Slash-separated type-name substrings to exclude from patching.");
+
+        RenderProfilerMethodNameContains = config.Bind(
+            "Profiler",
+            "Render Profiler Method Name Contains",
+            "",
+            "Optional slash-separated method-name substrings to include. Empty includes all methods that pass the current patch mode.");
+
+        RenderProfilerExcludeMethodNameContains = config.Bind(
+            "Profiler",
+            "Render Profiler Exclude Method Name Contains",
+            "CombatAI.LookForJammingTargets",
+            "Slash-separated formatted method-name substrings to exclude from patching. Use entries like 'TypeName.MethodName' or just 'MethodName'.");
+
+        RenderProfilerPatchConstructors = config.Bind(
+            "Profiler",
+            "Render Profiler Patch Constructors",
+            false,
+            "Patch constructors/static constructors in AllMethods mode. Risky; leave off unless needed.");
+
+        RenderProfilerLogEachPatch = config.Bind(
+            "Profiler",
+            "Render Profiler Log Each Patch",
+            true,
+            "Log before and after every patched method. Useful because the last 'Patching...' line identifies a hard-crash method.");
+
+#if MODERN
+        OpenXrSymmetricProjection = config.Bind(
+            "OpenXR",
+            "Symmetric Projection",
+            false,
+            "Sets OpenXR symmetric projection before display subsystem creation. Useful as an SPI isolation test.");
+
+#endif
     }
 }

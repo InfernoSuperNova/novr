@@ -24,11 +24,6 @@ public class VrTogglerManager
         // TODO: should never pick OpenXR on x86, since it no worky.
         switch(ModConfiguration.Instance.PreferredVrApi.Value)
         {
-            case ModConfiguration.VrApi.OpenVr:
-            {
-                _toggler = new XrPluginOpenVrToggler();
-                return;
-            }
             case ModConfiguration.VrApi.OpenXr:
             {
                 _toggler = new XrPluginOpenXrToggler();
