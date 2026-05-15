@@ -4,6 +4,7 @@ using Il2CppInterop.Runtime.InteropTypes.Arrays;
 #endif
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace NOVR.VrCamera;
 
@@ -66,8 +67,15 @@ public class VrCameraManager: MonoBehaviour
         var additionalCameraData = AdditionalCameraData.Create(trackedCamera);
         additionalCameraData?.SetRenderTypeBase();
         additionalCameraData?.SetAllowXrRendering(true);
-        additionalCameraData.GetCameraStack().AddRange(rootCamera.GetComponent<AdditionalCameraData>().GetCameraStack());
+        //additionalCameraData.GetCameraStack().AddRange(rootCamera.GetComponent<AdditionalCameraData>().GetCameraStack());
 
+        var universalAdditionalCameraData = trackedCameraObject.GetComponent<UniversalAdditionalCameraData>();
+        var rootUniversalAdditionalCameraData = rootCamera.GetComponent<UniversalAdditionalCameraData>();
+        
+        if (universalAdditionalCameraData != null && rootUniversalAdditionalCameraData != null)
+            universalAdditionalCameraData.cameraStack.AddRange(rootUniversalAdditionalCameraData.cameraStack);
+        
+        
         var rootAudioListener = rootCamera.GetComponent<AudioListener>();
         if (rootAudioListener != null)
         {
