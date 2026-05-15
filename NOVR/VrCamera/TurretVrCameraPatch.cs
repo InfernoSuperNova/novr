@@ -1,4 +1,5 @@
 using HarmonyLib;
+using UnityEngine;
 
 namespace NOVR.VrCamera;
 
@@ -10,15 +11,20 @@ internal static class TurretVrCameraPatch
         [HarmonyPrefix]
         private static bool Prefix(global::Turret __instance)
         {
-            if (__instance == null ||
-                !Traverse.Create(__instance).Field("manual").GetValue<bool>() ||
-                Traverse.Create(__instance).Field("target").GetValue<global::Unit>() != null)
+            if (__instance == null)
             {
                 return true;
             }
 
-            var aircraft = Traverse.Create(__instance).Field("aircraft").GetValue<global::Aircraft>();
-            var attachedUnit = Traverse.Create(__instance).Field("attachedUnit").GetValue<global::Unit>();
+            var turret = Traverse.Create(__instance);
+            if (!turret.Field("manual").GetValue<bool>() ||
+                turret.Field("target").GetValue<global::Unit>() != null)
+            {
+                return true;
+            }
+
+            var aircraft = turret.Field("aircraft").GetValue<global::Aircraft>();
+            var attachedUnit = turret.Field("attachedUnit").GetValue<global::Unit>();
             if (aircraft == null ||
                 attachedUnit == null ||
                 !aircraft.LocalSim ||
@@ -34,7 +40,18 @@ internal static class TurretVrCameraPatch
             }
 
             __instance.SetVector(vrCamera.transform.forward);
-            return true;
+
+            var lastVectorSent = turret.Field("lastVectorSent").GetValue<float>();
+            if (Time.timeSinceLevelLoad - lastVectorSent > 0.20000000298023224)
+            {
+                var currentWeaponStation = turret.Field("currentWeaponStation").GetValue<global::WeaponStation>();
+                var manualVector = turret.Field("manualVector").GetValue<Vector3>();
+                aircraft.SetTurretVector(currentWeaponStation.Number, manualVector);
+                turret.Field("lastVectorSent").SetValue(Time.timeSinceLevelLoad);
+            }
+
+            turret.Method("AimTurret", turret.Field("manualVector").GetValue<Vector3>()).GetValue();
+            return false;
         }
     }
 }
