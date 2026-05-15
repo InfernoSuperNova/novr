@@ -12,7 +12,7 @@ public class NOVRBlackoutCanvasBehavior : MonoBehaviour
         
         ApplyVrUiLayerRecursive(canvas.transform);
         canvas.transform.localPosition = canvas.transform.localPosition with { z = 0 };
-        
+        canvas.transform.localScale = Vector3.one * 10;
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
         canvas.worldCamera = EventBus.CockpitHudCamera;
         canvas.planeDistance = 1f;
