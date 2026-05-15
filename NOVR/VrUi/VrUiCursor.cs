@@ -96,9 +96,9 @@ public class VrUiCursor: NOVRBehaviour
         
         
         Vector3 direction = Quaternion.Euler(-cursorPitch, cursorYaw, 0f) * Vector3.forward;
-        var inScreenSpace = UiCamera.WorldToScreenPoint(UiCamera.transform.position + direction * DefaultProjectionDistance);
+        var inScreenSpace = UiCamera.WorldToScreenPoint( direction * DefaultProjectionDistance);
         var cursorDistance = GetDistanceUnderCursor(inScreenSpace);
-        Vector3 pos = UiCamera.transform.position + direction * cursorDistance;
+        Vector3 pos = direction * cursorDistance;
         _cursor.transform.position = pos;
         _cursor.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
     }
@@ -173,7 +173,7 @@ public class VrUiCursor: NOVRBehaviour
 
             distance = result.worldPosition == Vector3.zero
                 ? result.distance
-                : Vector3.Distance(UiCamera.transform.position, result.worldPosition);
+                : Vector3.Distance(Vector3.zero, result.worldPosition);
 
             return distance > 0f;
         }
