@@ -97,6 +97,7 @@ public class Core : MonoBehaviour
         _oldAircraft = _aircraft;
         GameManager.GetLocalAircraft(out _aircraft);
         if (_aircraft != _oldAircraft) NOVRPoseDriver.Calibrate();
+        CameraStateManager.enableMouseLook = false;
     }
 
 }
