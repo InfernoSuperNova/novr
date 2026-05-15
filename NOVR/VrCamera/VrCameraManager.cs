@@ -66,7 +66,7 @@ public class VrCameraManager: MonoBehaviour
         var additionalCameraData = AdditionalCameraData.Create(trackedCamera);
         additionalCameraData?.SetRenderTypeBase();
         additionalCameraData?.SetAllowXrRendering(true);
-        additionalCameraData.GetCameraStack().AddRange(trackedCamera.GetComponent<AdditionalCameraData>().GetCameraStack());
+        additionalCameraData.GetCameraStack().AddRange(rootCamera.GetComponent<AdditionalCameraData>().GetCameraStack());
 
         var rootAudioListener = rootCamera.GetComponent<AudioListener>();
         if (rootAudioListener != null)
