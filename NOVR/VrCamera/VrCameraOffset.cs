@@ -4,7 +4,7 @@ using UnityEngine;
 namespace NOVR.VrCamera;
 
 // TODO: add manual offsets.
-public class VrCameraOffset: UuvrBehaviour
+public class VrCameraOffset: NOVRBehaviour
 {
 #if CPP
     public VrCameraOffset(System.IntPtr pointer) : base(pointer)

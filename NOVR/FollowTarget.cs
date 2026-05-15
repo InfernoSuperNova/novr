@@ -2,7 +2,7 @@
 
 namespace NOVR;
 
-public class FollowTarget: UuvrBehaviour
+public class FollowTarget: NOVRBehaviour
 {
 #if CPP
     public FollowTarget(System.IntPtr pointer) : base(pointer)

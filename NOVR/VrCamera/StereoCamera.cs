@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace NOVR.VrCamera;
 
-public class StereoCamera : UuvrBehaviour
+public class StereoCamera : NOVRBehaviour
 {
     
     public Camera? ParentCamera { get; private set; }

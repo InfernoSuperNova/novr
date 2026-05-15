@@ -8,7 +8,7 @@ namespace NOVR;
 
 // TODO a lot of uncached reflection here.
 // I want to overhaul the config for this anyway, so will clean this up when that time comes.
-public class ThingDisabler : UuvrBehaviour
+public class ThingDisabler : NOVRBehaviour
 {
 #if CPP
     public ThingDisabler(IntPtr pointer) : base(pointer)

@@ -5,16 +5,12 @@ using UnityEngine;
 
 namespace NOVR;
 
-public class UuvrPoseDriver: UuvrBehaviour
+public class NOVRPoseDriver: NOVRBehaviour
 {
-#if CPP
-    public UuvrPoseDriver(IntPtr pointer) : base(pointer)
-    {
-    }
-#endif
 
     private MethodInfo? _trackingRotationMethod;
-    private readonly object[] _trackingRotationMethodArgs = {
+    private MethodInfo? _trackingPositionMethod;
+    private readonly object[] _trackingMethodArgs = {
         2 // Enum value for XRNode.CenterEye
     };
 
@@ -27,10 +23,11 @@ public class UuvrPoseDriver: UuvrBehaviour
                                 Type.GetType("UnityEngine.VR.InputTracking, UnityEngine");
 
         _trackingRotationMethod = inputTrackingType?.GetMethod("GetLocalRotation");
+        _trackingPositionMethod = inputTrackingType?.GetMethod("GetLocalPosition");
 
-        if (_trackingRotationMethod == null)
+        if (_trackingRotationMethod == null || _trackingPositionMethod == null)
         {
-            Debug.LogError("Failed to find InputTracking.GetLocalRotation. Destroying UUVR Pose Driver.");
+            Debug.LogError("Failed to find InputTracking.GetLocalRotation/GetLocalPosition. Destroying UUVR Pose Driver.");
             Destroy(this);
             return;
         }
@@ -63,9 +60,10 @@ public class UuvrPoseDriver: UuvrBehaviour
 
     private void UpdateTransform()
     {
-        if (_trackingRotationMethod != null)
+        if (_trackingRotationMethod != null && _trackingPositionMethod != null)
         {
-            transform.localRotation = (Quaternion)_trackingRotationMethod.Invoke(null, _trackingRotationMethodArgs);
+            transform.localRotation = (Quaternion)_trackingRotationMethod.Invoke(null, _trackingMethodArgs);
+            transform.localPosition = (Vector3)_trackingPositionMethod.Invoke(null, _trackingMethodArgs);
         }
     }
 

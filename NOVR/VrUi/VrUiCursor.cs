@@ -8,7 +8,7 @@ using UnityEngine.UI;
 namespace NOVR.VrUi;
 
 [DefaultExecutionOrder(-1000)]
-public class VrUiCursor: UuvrBehaviour
+public class VrUiCursor: NOVRBehaviour
 {
 
     private Texture2D? _texture;

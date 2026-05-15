@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace NOVR.VrUi;
 
-public class NOUIManager : UuvrBehaviour
+public class NOUIManager : NOVRBehaviour
 {
     private const float SmoothingFactor = 10f;
     private Camera? _cockpitHudCamera;
@@ -71,7 +71,7 @@ public class NOUIManager : UuvrBehaviour
 
     private Camera CreateUiCamera(string cameraName, float depth)
     {
-        var poseDriver = Create<UuvrPoseDriver>(transform);
+        var poseDriver = Create<NOVRPoseDriver>(transform);
         poseDriver.name = cameraName;
 
         var camera = poseDriver.gameObject.AddComponent<Camera>();

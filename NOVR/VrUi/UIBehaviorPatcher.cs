@@ -11,7 +11,7 @@ using UnityEngine.UIElements;
 
 namespace NOVR.VrUi;
 
-public class UIBehaviorPatcher : UuvrBehaviour
+public class UIBehaviorPatcher : NOVRBehaviour
 {
 
     private static Dictionary<Type, Type> _patchMap = new()

@@ -56,8 +56,8 @@ public class Core: MonoBehaviour
 
         _refreshRateProperty = xrDeviceType?.GetProperty("refreshRate");
         
-        _vrUi = UuvrBehaviour.Create<NOUIManager>(transform);
-        _thingDisabler = UuvrBehaviour.Create<ThingDisabler>(transform);
+        _vrUi = NOVRBehaviour.Create<NOUIManager>(transform);
+        _thingDisabler = NOVRBehaviour.Create<ThingDisabler>(transform);
 
         _vrTogglerManager = new VrTogglerManager();
 

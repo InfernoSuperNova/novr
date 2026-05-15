@@ -26,7 +26,7 @@ public class VrCamera : StereoCamera
 
     private void Start()
     {
-        gameObject.AddComponent<UuvrPoseDriver>();
+        gameObject.AddComponent<NOVRPoseDriver>();
     }
     
     private void Update()

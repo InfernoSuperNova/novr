@@ -8,7 +8,7 @@ using UnityEngine.Rendering;
 
 namespace NOVR;
 
-public class UuvrBehaviour: MonoBehaviour
+public class NOVRBehaviour: MonoBehaviour
 {
 #if CPP
     private Action? _onBeforeRenderAction;
@@ -20,7 +20,7 @@ public class UuvrBehaviour: MonoBehaviour
     }
 #endif
     
-    public static T Create<T>(Transform parent) where T: UuvrBehaviour
+    public static T Create<T>(Transform parent) where T: NOVRBehaviour
     {
         return new GameObject(typeof(T).Name)
         {
