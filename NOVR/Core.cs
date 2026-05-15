@@ -20,6 +20,9 @@ public class Core : MonoBehaviour
     private ThingDisabler? _thingDisabler;
     private PropertyInfo? _refreshRateProperty;
     private VrTogglerManager? _vrTogglerManager;
+    
+    private Aircraft _aircraft;
+    private Aircraft _oldAircraft;
 
     public static void Create()
     {
@@ -89,6 +92,11 @@ public class Core : MonoBehaviour
             Time.fixedDeltaTime = _originalFixedDeltaTime;
         }
     }
-    
+    private void FixedUpdate()
+    {
+        _oldAircraft = _aircraft;
+        GameManager.GetLocalAircraft(out _aircraft);
+        if (_aircraft != _oldAircraft) NOVRPoseDriver.Calibrate();
+    }
 
 }
