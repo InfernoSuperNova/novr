@@ -5,6 +5,7 @@ using NOVR.Profiling;
 using NOVR.VrTogglers;
 using NOVR.VrUi;
 using UnityEngine;
+using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 
@@ -45,7 +46,7 @@ public class Core : MonoBehaviour
 
     private void Start()
     {
-        XRDevice.deviceLoaded += DeviceLoaded;
+        
         
         var xrDeviceType = Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.XRModule") ??
                            Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.VRModule") ??
@@ -89,8 +90,5 @@ public class Core : MonoBehaviour
         }
     }
     
-    private void DeviceLoaded(string obj)
-    {
-        NOVRPoseDriver.Calibrate();
-    }
+
 }

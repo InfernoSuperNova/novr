@@ -6,6 +6,8 @@ using NOVR.Profiling;
 using NOVR.VrCamera;
 using NOVR.VrUi;
 using NOVR.VrUi.SpecialBehavior;
+using UnityEngine.SceneManagement;
+using UnityEngine.XR;
 
 #if CPP
 using BepInEx.Unity.IL2CPP;
@@ -18,15 +20,25 @@ namespace NOVR;
     "deltawing.novr",
     "NOVR",
     "0.1.0")]
-public class UuvrPlugin : BaseUnityPlugin
+public class NOVRPlugin : BaseUnityPlugin
 {
-    private static UuvrPlugin _instance;
+    private static NOVRPlugin _instance;
     public static string ModFolderPath { get; private set; }
+
+    public NOVRPlugin()
+    {
+        InputTracking.trackingAcquired += TrackingAcquired;
+    }
+
+    private void TrackingAcquired(XRNodeState obj)
+    {
+        NOVRPoseDriver.Calibrate();
+    }
      
     private void Awake()
     {
         _instance = this;
-        ModFolderPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(UuvrPlugin)).Location);
+        ModFolderPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(NOVRPlugin)).Location);
         
         new ModConfiguration(Config);
         Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
