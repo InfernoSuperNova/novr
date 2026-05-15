@@ -5,18 +5,14 @@ using NOVR.Profiling;
 using NOVR.VrTogglers;
 using NOVR.VrUi;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.XR;
 
 namespace NOVR;
 
-public class Core: MonoBehaviour
+public class Core : MonoBehaviour
 {
-#if CPP
-    public UuvrCore(IntPtr pointer) : base(pointer)
-    {
-    }
-#endif
-
-    private readonly KeyboardKey _toggleVrKey = new (KeyboardKey.KeyCode.F3);
+    
     private float _originalFixedDeltaTime;
     
     private NOUIManager? _vrUi;
@@ -49,6 +45,8 @@ public class Core: MonoBehaviour
 
     private void Start()
     {
+        XRDevice.deviceLoaded += DeviceLoaded;
+        
         var xrDeviceType = Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.XRModule") ??
                            Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.VRModule") ??
                            Type.GetType("UnityEngine.VR.VRDevice, UnityEngine.VRModule") ??
@@ -60,13 +58,12 @@ public class Core: MonoBehaviour
         _thingDisabler = NOVRBehaviour.Create<ThingDisabler>(transform);
 
         _vrTogglerManager = new VrTogglerManager();
-
-        SetPositionTrackingEnabled(false);
     }
+
+
 
     private void Update()
     {
-        if (_toggleVrKey.UpdateIsDown()) _vrTogglerManager?.ToggleVr();
         UpdatePhysicsRate();
     }
 
@@ -91,30 +88,9 @@ public class Core: MonoBehaviour
             Time.fixedDeltaTime = _originalFixedDeltaTime;
         }
     }
-
-    private static void SetPositionTrackingEnabled(bool positionTrackingEnabled)
+    
+    private void DeviceLoaded(string obj)
     {
-        var inputTrackingType = 
-            Type.GetType("UnityEngine.XR.InputTracking, UnityEngine.XRModule") ??
-            Type.GetType("UnityEngine.XR.InputTracking, UnityEngine.VRModule") ??
-            Type.GetType("UnityEngine.VR.InputTracking, UnityEngine.VRModule") ??
-            Type.GetType("UnityEngine.VR.InputTracking, UnityEngine");
-
-        if (inputTrackingType != null)
-        {
-            var disablePositionalTrackingProperty = inputTrackingType.GetProperty("disablePositionalTracking");
-            if (disablePositionalTrackingProperty != null)
-            {
-                disablePositionalTrackingProperty.SetValue(null, !positionTrackingEnabled, null);
-            }
-            else
-            {
-                Debug.LogWarning("Failed to get property disablePositionalTracking");
-            }
-        }
-        else
-        {
-            Debug.LogWarning("Failed to get type UnityEngine.XR.InputTracking");
-        }
+        NOVRPoseDriver.Calibrate();
     }
 }

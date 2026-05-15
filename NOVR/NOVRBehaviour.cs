@@ -8,17 +8,8 @@ using UnityEngine.Rendering;
 
 namespace NOVR;
 
-public class NOVRBehaviour: MonoBehaviour
+public class NOVRBehaviour : MonoBehaviour
 {
-#if CPP
-    private Action? _onBeforeRenderAction;
-#endif
-
-#if CPP
-    public UuvrBehaviour(IntPtr pointer) : base(pointer)
-    {
-    }
-#endif
     
     public static T Create<T>(Transform parent) where T: NOVRBehaviour
     {

@@ -15,55 +15,21 @@ using Il2CppInterop.Runtime.Injection;
 namespace NOVR;
 
 [BepInPlugin(
-#if LEGACY
-    "raicuparta.uuvr-legacy",
-#elif MODERN
-    "raicuparta.uuvr-modern",
-#endif
-    "UUVR",
-    "0.4.0")]
-public class UuvrPlugin
-#if CPP
-: BasePlugin
-#elif MONO
-: BaseUnityPlugin
-#endif
+    "deltawing.novr",
+    "NOVR",
+    "0.1.0")]
+public class UuvrPlugin : BaseUnityPlugin
 {
     private static UuvrPlugin _instance;
     public static string ModFolderPath { get; private set; }
-    
-#if CPP
-    public override void Load()
-#elif MONO
+     
     private void Awake()
-#endif
     {
         _instance = this;
         ModFolderPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(UuvrPlugin)).Location);
         
         new ModConfiguration(Config);
         Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
-        
-#if CPP
-        ClassInjector.RegisterTypeInIl2Cpp<VrCamera.VrCamera>();
-        ClassInjector.RegisterTypeInIl2Cpp<VrCamera.StereoCamera>();
-        ClassInjector.RegisterTypeInIl2Cpp<VrCameraOffset>();
-        ClassInjector.RegisterTypeInIl2Cpp<PatchDispatcher>();
-        ClassInjector.RegisterTypeInIl2Cpp<MainMenuBehaviour>();
-        ClassInjector.RegisterTypeInIl2Cpp<GameplayUIBehaviour>();
-        ClassInjector.RegisterTypeInIl2Cpp<UiOverlayRenderMode>();
-        ClassInjector.RegisterTypeInIl2Cpp<VrUiCursor>();
-        ClassInjector.RegisterTypeInIl2Cpp<VrUiManager>();
-        ClassInjector.RegisterTypeInIl2Cpp<FollowTarget>();
-        // ClassInjector.RegisterTypeInIl2Cpp<UuvrInput>();
-        ClassInjector.RegisterTypeInIl2Cpp<UuvrPoseDriver>();
-        ClassInjector.RegisterTypeInIl2Cpp<UuvrBehaviour>();
-        ClassInjector.RegisterTypeInIl2Cpp<UuvrCore>();
-        ClassInjector.RegisterTypeInIl2Cpp<RenderProfiler>();
-        // ClassInjector.RegisterTypeInIl2Cpp<AdditionalCameraData>();
-       ClassInjector.RegisterTypeInIl2Cpp<VrCameraManager>();
-#endif
-
         Core.Create();
     }
 }

@@ -7,10 +7,11 @@ namespace NOVR;
 
 public class NOVRPoseDriver: NOVRBehaviour
 {
-
-    private MethodInfo? _trackingRotationMethod;
-    private MethodInfo? _trackingPositionMethod;
-    private readonly object[] _trackingMethodArgs = {
+    private Vector3 _anchor;
+    private static Vector3 _calibrate;
+    private static MethodInfo? _trackingRotationMethod;
+    private static MethodInfo? _trackingPositionMethod;
+    private static readonly object[] TrackingMethodArgs = {
         2 // Enum value for XRNode.CenterEye
     };
 
@@ -42,6 +43,16 @@ public class NOVRPoseDriver: NOVRBehaviour
         }
     }
 
+    public void SetAnchor(Vector3 anchor)
+    {
+        _anchor = anchor;
+    }
+
+    public static void Calibrate()
+    {
+        _calibrate = -(Vector3)_trackingPositionMethod.Invoke(null, TrackingMethodArgs);
+    }
+    
     protected override void OnBeforeRender()
     {
         base.OnBeforeRender();
@@ -62,8 +73,8 @@ public class NOVRPoseDriver: NOVRBehaviour
     {
         if (_trackingRotationMethod != null && _trackingPositionMethod != null)
         {
-            transform.localRotation = (Quaternion)_trackingRotationMethod.Invoke(null, _trackingMethodArgs);
-            transform.localPosition = (Vector3)_trackingPositionMethod.Invoke(null, _trackingMethodArgs);
+            transform.localRotation = (Quaternion)_trackingRotationMethod.Invoke(null, TrackingMethodArgs);
+            transform.localPosition = _anchor + (Vector3)_trackingPositionMethod.Invoke(null, TrackingMethodArgs) + _calibrate;
         }
     }
 
