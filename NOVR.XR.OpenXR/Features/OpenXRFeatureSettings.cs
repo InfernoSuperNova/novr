@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine.XR.OpenXR.Features;
 using UnityEngine.Serialization;
 
+[assembly: InternalsVisibleTo("UnityEditor.XR.OpenXR.Tests")]
 namespace UnityEngine.XR.OpenXR
 {
     public partial class OpenXRSettings
@@ -10,8 +12,10 @@ namespace UnityEngine.XR.OpenXR
         /// <summary>
         /// All known features.
         /// </summary>
-        [FormerlySerializedAs("extensions")] [HideInInspector] [SerializeField]
-        internal OpenXRFeature[] features = {};
+        [FormerlySerializedAs("extensions")]
+        [HideInInspector]
+        [SerializeField]
+        internal OpenXRFeature[] features = { };
 
         /// <summary>
         /// Number of available features.
@@ -32,7 +36,7 @@ namespace UnityEngine.XR.OpenXR
         /// <returns>Feature by type</returns>
         public OpenXRFeature GetFeature(Type featureType)
         {
-            foreach(var feature in features)
+            foreach (var feature in features)
                 if (featureType.IsInstanceOfType(feature))
                     return feature;
 
@@ -54,7 +58,7 @@ namespace UnityEngine.XR.OpenXR
         public OpenXRFeature[] GetFeatures(Type featureType)
         {
             var result = new List<OpenXRFeature>();
-            foreach(var feature in features)
+            foreach (var feature in features)
                 if (featureType.IsInstanceOfType(feature))
                     result.Add(feature);
 
@@ -70,7 +74,7 @@ namespace UnityEngine.XR.OpenXR
         public int GetFeatures<TFeature>(List<TFeature> featuresOut) where TFeature : OpenXRFeature
         {
             featuresOut.Clear();
-            foreach(var feature in features)
+            foreach (var feature in features)
                 if (feature is TFeature xrFeature)
                     featuresOut.Add(xrFeature);
 
@@ -86,7 +90,7 @@ namespace UnityEngine.XR.OpenXR
         public int GetFeatures(Type featureType, List<OpenXRFeature> featuresOut)
         {
             featuresOut.Clear();
-            foreach(var feature in features)
+            foreach (var feature in features)
                 if (featureType.IsInstanceOfType(feature))
                     featuresOut.Add(feature);
 
@@ -110,7 +114,5 @@ namespace UnityEngine.XR.OpenXR
             featuresOut.AddRange(features);
             return featuresOut.Count;
         }
-
-
     }
 }

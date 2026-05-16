@@ -4,6 +4,10 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.XR.Management;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace UnityEngine.XR.OpenXR
 {
     internal class OpenXRRestarter : MonoBehaviour
@@ -12,13 +16,29 @@ namespace UnityEngine.XR.OpenXR
         internal Action onAfterShutdown;
         internal Action onQuit;
         internal Action onAfterCoroutine;
+        internal Action onAfterSuccessfulRestart;
 
-        public void ResetCallbacks ()
+        static OpenXRRestarter()
+        {
+#if UNITY_EDITOR
+            EditorApplication.playModeStateChanged += (state) =>
+            {
+                if (state == PlayModeStateChange.EnteredPlayMode)
+                    m_pauseAndRestartAttempts = 0;
+            };
+#endif
+            TimeBetweenRestartAttempts = 5.0f;
+            DisableApplicationQuit = false;
+        }
+
+        public void ResetCallbacks()
         {
             onAfterRestart = null;
+            onAfterSuccessfulRestart = null;
             onAfterShutdown = null;
             onAfterCoroutine = null;
             onQuit = null;
+            m_pauseAndRestartAttempts = 0;
         }
 
         /// <summary>
@@ -29,6 +49,34 @@ namespace UnityEngine.XR.OpenXR
         private static OpenXRRestarter s_Instance = null;
 
         private Coroutine m_Coroutine;
+
+        private static int m_pauseAndRestartCoroutineCount = 0;
+
+        private Object m_PauseAndRestartCoroutineCountLock = new Object();
+
+        private static int m_pauseAndRestartAttempts = 0;
+
+        public static float TimeBetweenRestartAttempts
+        {
+            get;
+            set;
+        }
+
+        public static int PauseAndRestartAttempts
+        {
+            get
+            {
+                return m_pauseAndRestartAttempts;
+            }
+        }
+
+        internal static int PauseAndRestartCoroutineCount
+        {
+            get
+            {
+                return m_pauseAndRestartCoroutineCount;
+            }
+        }
 
         public static OpenXRRestarter Instance
         {
@@ -50,9 +98,19 @@ namespace UnityEngine.XR.OpenXR
         }
 
         /// <summary>
+        /// If true, disables the application quitting, even when Quit is called.
+        /// Used in testing, which needs to monitor for Quit to be called.
+        /// </summary>
+        internal static bool DisableApplicationQuit
+        {
+            get;
+            set;
+        }
+
+        /// <summary>
         /// Shutdown the the OpenXR loader and optionally quit the application
         /// </summary>
-        public void Shutdown ()
+        public void Shutdown()
         {
             if (OpenXRLoader.Instance == null)
                 return;
@@ -63,13 +121,13 @@ namespace UnityEngine.XR.OpenXR
                 return;
             }
 
-            m_Coroutine = StartCoroutine(RestartCoroutine(false));
+            m_Coroutine = StartCoroutine(RestartCoroutine(false, true));
         }
 
         /// <summary>
         /// Restart the OpenXR loader
         /// </summary>
-        public void ShutdownAndRestart ()
+        public void ShutdownAndRestart()
         {
             if (OpenXRLoader.Instance == null)
                 return;
@@ -80,30 +138,128 @@ namespace UnityEngine.XR.OpenXR
                 return;
             }
 
-            m_Coroutine = StartCoroutine(RestartCoroutine(true));
+            m_Coroutine = StartCoroutine(RestartCoroutine(true, true));
         }
 
-        private IEnumerator RestartCoroutine (bool shouldRestart)
+        /// <summary>
+        /// Start a coroutine that will pause, then shut xr down, then re-initialize xr.
+        /// </summary>
+        public void PauseAndShutdownAndRestart()
+        {
+            if (OpenXRLoader.Instance == null)
+            {
+                return;
+            }
+
+            StartCoroutine(PauseAndShutdownAndRestartCoroutine(TimeBetweenRestartAttempts));
+        }
+
+        /// <summary>
+        /// Start a coroutine that will pause, then re-initialize xr if xr hasn't already succeeded.
+        /// </summary>
+        public void PauseAndRetryInitialization()
+        {
+            if (OpenXRLoader.Instance == null)
+            {
+                return;
+            }
+
+            StartCoroutine(PauseAndRetryInitializationCoroutine(TimeBetweenRestartAttempts));
+        }
+
+        private void IncrementPauseAndRestartCoroutineCount()
+        {
+            lock (m_PauseAndRestartCoroutineCountLock)
+            {
+                m_pauseAndRestartCoroutineCount += 1;
+            }
+        }
+
+        private void DecrementPauseAndRestartCoroutineCount()
+        {
+            lock (m_PauseAndRestartCoroutineCountLock)
+            {
+                m_pauseAndRestartCoroutineCount -= 1;
+            }
+        }
+
+        private IEnumerator PauseAndShutdownAndRestartCoroutine(float pauseTimeInSeconds)
+        {
+            IncrementPauseAndRestartCoroutineCount();
+
+            try
+            {
+                // Wait a few seconds to add delay between restart requests in a restart loop.
+                yield return new WaitForSeconds(pauseTimeInSeconds);
+
+                yield return new WaitForRestartFinish();
+
+                m_pauseAndRestartAttempts += 1;
+                m_Coroutine = StartCoroutine(RestartCoroutine(true, true));
+            }
+            finally
+            {
+                onAfterCoroutine?.Invoke();
+            }
+
+            DecrementPauseAndRestartCoroutineCount();
+        }
+
+        private IEnumerator PauseAndRetryInitializationCoroutine(float pauseTimeInSeconds)
+        {
+            IncrementPauseAndRestartCoroutineCount();
+
+            try
+            {
+                // Wait a few seconds to add delay between restart requests in a restart loop.
+                yield return new WaitForSeconds(pauseTimeInSeconds);
+
+                yield return new WaitForRestartFinish();
+
+                bool shouldSkipRestart = XRGeneralSettings.Instance.Manager.activeLoader != null;
+                if (!shouldSkipRestart)
+                {
+                    m_pauseAndRestartAttempts += 1;
+                    m_Coroutine = StartCoroutine(RestartCoroutine(true, false));
+                }
+            }
+            finally
+            {
+                onAfterCoroutine?.Invoke();
+            }
+
+            DecrementPauseAndRestartCoroutineCount();
+        }
+
+        private IEnumerator RestartCoroutine(bool shouldRestart, bool shouldShutdown)
         {
             try
             {
-                yield return null;
+                if (shouldShutdown)
+                {
+                    Debug.Log("Shutting down OpenXR.");
+                    yield return null;
 
-                // Always shutdown the loader
-                XRGeneralSettings.Instance.Manager.DeinitializeLoader();
-                yield return null;
+                    // Always shutdown the loader
+                    XRGeneralSettings.Instance.Manager.DeinitializeLoader();
+                    yield return null;
 
-                onAfterShutdown?.Invoke();
+                    onAfterShutdown?.Invoke();
+                }
 
                 // Restart?
                 if (shouldRestart && OpenXRRuntime.ShouldRestart())
                 {
+                    Debug.Log("Initializing OpenXR.");
                     yield return XRGeneralSettings.Instance.Manager.InitializeLoader();
 
                     XRGeneralSettings.Instance.Manager.StartSubsystems();
 
-                    if (XRGeneralSettings.Instance.Manager.activeLoader == null)
-                        Debug.LogError("Failure to restart OpenXRLoader after shutdown.");
+                    if (XRGeneralSettings.Instance.Manager.activeLoader != null)
+                    {
+                        m_pauseAndRestartAttempts = 0;
+                        onAfterSuccessfulRestart?.Invoke();
+                    }
 
                     onAfterRestart?.Invoke();
                 }
@@ -111,7 +267,18 @@ namespace UnityEngine.XR.OpenXR
                 else if (OpenXRRuntime.ShouldQuit())
                 {
                     onQuit?.Invoke();
-                    Application.Quit();
+
+                    if (!DisableApplicationQuit)
+                    {
+#if UNITY_EDITOR
+                        if (EditorApplication.isPlaying || EditorApplication.isPaused)
+                        {
+                            EditorApplication.ExitPlaymode();
+                        }
+#else
+                        Application.Quit();
+#endif
+                    }
                 }
             }
             finally

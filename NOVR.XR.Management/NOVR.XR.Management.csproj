@@ -12,7 +12,8 @@
         <OutputPath>$(BuildOutputDir)/plugins</OutputPath>
         <BepInExDeployDir>$(NuclearOptionPluginDir)</BepInExDeployDir>
         <TargetFramework>net48</TargetFramework>
-        <RootNamespace>UuvrXrManagement</RootNamespace>
+        <RootNamespace>UnityEngine.XR.Management</RootNamespace>
+        <AssemblyName>Unity.XR.Management</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup Condition=" '$(NuclearOptionGameDirResolved)' == 'NUCLEAR_OPTION_NOT_FOUND' ">

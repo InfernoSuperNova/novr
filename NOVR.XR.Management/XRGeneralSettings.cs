@@ -3,6 +3,10 @@ using System.Collections;
 
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace UnityEngine.XR.Management
 {
     /// <summary>General settings container used to house the instance of the active settings as well as the manager
@@ -42,6 +46,12 @@ namespace UnityEngine.XR.Management
             {
                 return s_RuntimeSettingsInstance;
             }
+#if UNITY_EDITOR
+            set
+            {
+                s_RuntimeSettingsInstance = value;
+            }
+#endif
         }
 
         /// <summary>The current active manager used to manage XR lifetime.</summary>
@@ -51,6 +61,12 @@ namespace UnityEngine.XR.Management
             {
                 return m_LoaderManagerInstance;
             }
+#if UNITY_EDITOR
+            set
+            {
+                m_LoaderManagerInstance = value;
+            }
+#endif
         }
 
         /// <summary>Used to set if the manager is activated and initialized on startup.</summary>
@@ -60,8 +76,16 @@ namespace UnityEngine.XR.Management
             {
                 return m_InitManagerOnStart;
             }
+            #if UNITY_EDITOR
+            set
+            {
+                m_InitManagerOnStart = value;
+            }
+            #endif
         }
-        
+
+
+#if !UNITY_EDITOR
         void Awake()
         {
             Debug.Log("XRGeneral Settings awakening...");
@@ -69,10 +93,35 @@ namespace UnityEngine.XR.Management
             Application.quitting += Quit;
             DontDestroyOnLoad(s_RuntimeSettingsInstance);
         }
+#endif
+
+#if UNITY_EDITOR
+        /// <summary>For internal use only.</summary>
+        [System.Obsolete("Deprecating internal only API.")]
+        public void InternalPauseStateChanged(PauseState state)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>For internal use only.</summary>
+        public void InternalPlayModeStateChanged(PlayModeStateChange state)
+        {
+            switch (state)
+            {
+                case PlayModeStateChange.ExitingPlayMode:
+                    Quit();
+                    break;
+                case PlayModeStateChange.ExitingEditMode:
+                case PlayModeStateChange.EnteredPlayMode:
+                case PlayModeStateChange.EnteredEditMode:
+                    break;
+            }
+        }
+#endif
 
         static void Quit()
         {
-            var instance = XRGeneralSettings.Instance;
+            XRGeneralSettings instance = XRGeneralSettings.Instance;
             if (instance == null)
                 return;
 
@@ -92,7 +141,7 @@ namespace UnityEngine.XR.Management
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         internal static void AttemptInitializeXRSDKOnLoad()
         {
-            var instance = XRGeneralSettings.Instance;
+            XRGeneralSettings instance = XRGeneralSettings.Instance;
             if (instance == null || !instance.InitManagerOnStart)
                 return;
 
@@ -102,7 +151,7 @@ namespace UnityEngine.XR.Management
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         internal static void AttemptStartXRSDKOnBeforeSplashScreen()
         {
-            var instance = XRGeneralSettings.Instance;
+            XRGeneralSettings instance = XRGeneralSettings.Instance;
             if (instance == null || !instance.InitManagerOnStart)
                 return;
 

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Reflection;
 using NOVR.VrCamera;
-using NOVR.Profiling;
 using NOVR.VrTogglers;
 using NOVR.VrUi;
 using UnityEngine;
@@ -24,33 +23,9 @@ public class Core : MonoBehaviour
     private Aircraft _aircraft;
     private Aircraft _oldAircraft;
 
-    public static void Create()
-    {
-        new GameObject("NOVR").AddComponent<Core>();
-    }
 
-    private void Awake()
+    public Core()
     {
-        DontDestroyOnLoad(gameObject);
-        gameObject.AddComponent<VrCameraManager>();
-        gameObject.AddComponent<EventBus>();
-        gameObject.AddComponent<RenderProfiler>();
-
-        // TODO: Emulate input.   
-        // UuvrBehaviour.Create<UuvrInput>(transform);
-    }
-
-    private void OnDestroy()
-    {
-        Debug.Log("NOVR has been destroyed. This shouldn't have happened. Recreating...");
-        
-        Create();
-    }
-
-    private void Start()
-    {
-        
-        
         var xrDeviceType = Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.XRModule") ??
                            Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.VRModule") ??
                            Type.GetType("UnityEngine.VR.VRDevice, UnityEngine.VRModule") ??
@@ -64,7 +39,26 @@ public class Core : MonoBehaviour
         _vrTogglerManager = new VrTogglerManager();
     }
 
+    public static void Create()
+    {
+        new GameObject("NOVR").AddComponent<Core>();
+    }
 
+    private void Awake()
+    {
+        DontDestroyOnLoad(gameObject);
+        gameObject.AddComponent<VrCameraManager>();
+        gameObject.AddComponent<EventBus>();
+        
+    }
+
+    private void OnDestroy()
+    {
+        Debug.Log("NOVR has been destroyed. This shouldn't have happened. Recreating...");
+        
+        Create();
+    }
+    
 
     private void Update()
     {

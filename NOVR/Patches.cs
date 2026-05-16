@@ -1,15 +1,13 @@
-﻿using HarmonyLib;
+using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 
 namespace NOVR;
 
-[HarmonyPatch]
-public static class Patches
+[HarmonyPatch(typeof(Camera), "set_fieldOfView")]
+public static class CameraPatches
 {
-    public static Vector3 hehe = Vector3.one * 0.5f;
-    
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(Camera), "set_fieldOfView")]
     // Unity already prevents this, but it also nags you constantly about it.
     // Some games try to change the FOV every frame, and all those logs can reduce performance.
     private static bool PreventChangingFov()
