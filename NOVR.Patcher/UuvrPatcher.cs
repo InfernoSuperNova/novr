@@ -6,19 +6,11 @@ using System.Linq;
 using System.Reflection;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
-#if CPP
-using BepInEx.Preloader.Core.Patching;
-#elif MONO
 using Mono.Cecil;
-#endif
+using Mono.Cecil.Cil;
 
-#if CPP
-[PatcherPluginInfo("com.raicuparta.uuvr", "UUVR", "0.1.0")]
-#endif
+
 public class Patcher
-#if CPP
-    : BasePatcher
-#endif
 {
     private static readonly List<string> GlobalSettingsFileNames =
         new()
@@ -32,21 +24,83 @@ public class Patcher
             "openvr_api", "openxr_loader", "UnityOpenXR", "ucrtbased.dll", "XRSDKOpenVR"
         };
 
-    public static IEnumerable<string> TargetDLLs { get; } = new[] { "Assembly-CSharp.dll" };
-
-#if MONO
+    public static IEnumerable<string> TargetDLLs { get; } = new[] { "Assembly-CSharp.dll", "Unity.XR.OpenXR.dll" };
+    
     public static void Patch(AssemblyDefinition assembly)
     {
+        if (assembly.Name.Name == "Unity.XR.OpenXR")
+        {
+            PatchOpenXrSettings(assembly);
+        }
+    }
+
+#if MONO
+    private static void PatchOpenXrSettings(AssemblyDefinition assembly)
+    {
+        var openXrSettingsType = assembly.MainModule.GetType("UnityEngine.XR.OpenXR.OpenXRSettings");
+        if (openXrSettingsType == null)
+        {
+            Console.WriteLine("[NOVR.Patcher] Failed to find UnityEngine.XR.OpenXR.OpenXRSettings.");
+            return;
+        }
+
+        var renderModeField = openXrSettingsType.Fields.FirstOrDefault(field => field.Name == "m_renderMode");
+        if (renderModeField == null)
+        {
+            Console.WriteLine("[NOVR.Patcher] Failed to find OpenXRSettings.m_renderMode.");
+            return;
+        }
+
+        var applySettingsMethod = openXrSettingsType.Methods.FirstOrDefault(method => method.Name == "ApplySettings");
+        if (applySettingsMethod != null)
+        {
+            ForceSinglePassInstanced(applySettingsMethod, renderModeField, openXrSettingsType);
+        }
+
+        var awakeMethod = openXrSettingsType.Methods.FirstOrDefault(method => method.Name == "Awake");
+        if (awakeMethod != null)
+        {
+            ForceSinglePassInstanced(awakeMethod, renderModeField, openXrSettingsType);
+        }
+
+        Console.WriteLine("[NOVR.Patcher] Patched OpenXRSettings to force SinglePassInstanced.");
+    }
+
+    private static void ForceSinglePassInstanced(MethodDefinition method, FieldDefinition renderModeField, TypeDefinition openXrSettingsType)
+    {
+        if (!method.HasBody)
+        {
+            Console.WriteLine($"[NOVR.Patcher] Skipping {method.FullName} because it has no body.");
+            return;
+        }
+
+        var singlePassValue = openXrSettingsType.NestedTypes
+            .First(type => type.Name == "RenderMode")
+            .Fields
+            .First(field => field.Name == "SinglePassInstanced");
+
+        var il = method.Body.GetILProcessor();
+        var firstInstruction = method.Body.Instructions.First();
+
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, singlePassValue.Constant is int value ? value : 1));
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Stfld, renderModeField));
     }
 #endif
 
-#if CPP
-    public override void Initialize()
-#elif MONO
+
     public static void Initialize()
-#endif
     {
-        Console.WriteLine("Patching UUVR...");
+        
+        
+        
+        
+        
+        Console.WriteLine("Patching NOVR...");
+        
+        
+        
+        
 
         var installerPath = Assembly.GetExecutingAssembly().Location;
 
@@ -58,13 +112,7 @@ public class Patcher
         var patcherPath = Path.GetDirectoryName(installerPath);
         
         CopyFilesToGame(patcherPath, dataPath);
-
-#if LEGACY
-        string globalSettingsFilePath = GetGlobalSettingsFilePath(dataPath);
-        string globalSettingsBackupPath = CreateGlobalSettingsBackup(globalSettingsFilePath);
-        string classDataPath = Path.Combine(patcherPath, "classdata.tpk");
-        PatchVR(globalSettingsBackupPath, globalSettingsFilePath, classDataPath);
-#endif
+        
 
         Console.WriteLine("");
         Console.WriteLine("Installed successfully, probably.");
