@@ -4,11 +4,11 @@ namespace NOVR.VrCamera;
 
 internal static class CameraOrbitStatePatch
 {
-    [HarmonyPatch(typeof(global::CameraOrbitState), "CameraMotion")]
+    [HarmonyPatch(typeof(CameraOrbitState), "CameraMotion")]
     private static class CameraMotionPatch
     {
         [HarmonyPrefix]
-        private static bool Prefix(global::CameraStateManager cam)
+        private static bool Prefix(CameraStateManager cam)
         {
             if (cam?.cameraPivot == null)
                 return true;
