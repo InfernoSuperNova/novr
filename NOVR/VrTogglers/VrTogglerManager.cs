@@ -19,22 +19,7 @@ public class VrTogglerManager
         {
             _toggler.SetVrEnabled(false);
         }
-        
-#if MODERN
-        // TODO: should never pick OpenXR on x86, since it no worky.
-        switch(ModConfiguration.Instance.PreferredVrApi.Value)
-        {
-            case ModConfiguration.VrApi.OpenXr:
-            {
-                _toggler = new XrPluginOpenXrToggler();
-                return;
-            }
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-#else
-        _toggler = new LegacyOpenVrToggler();
-#endif
+        _toggler = new XrPluginOpenXrToggler();
     }
 
     public void ToggleVr()

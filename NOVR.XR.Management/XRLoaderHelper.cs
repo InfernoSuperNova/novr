@@ -3,6 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.XR;
@@ -32,7 +36,7 @@ namespace UnityEngine.XR.Management
         /// <returns>The loaded subsystem or null if not found.</returns>
         public override T GetLoadedSubsystem<T>()
         {
-            var subsystemType = typeof(T);
+            Type subsystemType = typeof(T);
             ISubsystem subsystem;
             m_SubsystemInstanceMap.TryGetValue(subsystemType, out subsystem);
             return subsystem as T;
@@ -46,7 +50,7 @@ namespace UnityEngine.XR.Management
         /// <typeparam name="T">A subclass of <see cref="ISubsystem"/></typeparam>
         protected void StartSubsystem<T>() where T : class, ISubsystem
         {
-            var subsystem = GetLoadedSubsystem<T>();
+            T subsystem = GetLoadedSubsystem<T>();
             if (subsystem != null)
                 subsystem.Start();
         }
@@ -59,7 +63,7 @@ namespace UnityEngine.XR.Management
         /// <typeparam name="T">A subclass of <see cref="ISubsystem"/></typeparam>
         protected void StopSubsystem<T>() where T : class, ISubsystem
         {
-            var subsystem = GetLoadedSubsystem<T>();
+            T subsystem = GetLoadedSubsystem<T>();
             if (subsystem != null)
                 subsystem.Stop();
         }
@@ -72,7 +76,7 @@ namespace UnityEngine.XR.Management
         /// <typeparam name="T">A subclass of <see cref="ISubsystem"/></typeparam>
         protected void DestroySubsystem<T>() where T : class, ISubsystem
         {
-            var subsystem = GetLoadedSubsystem<T>();
+            T subsystem = GetLoadedSubsystem<T>();
             if (subsystem != null)
             {
                 var subsystemType = typeof(T);
@@ -172,5 +176,17 @@ namespace UnityEngine.XR.Management
             m_SubsystemInstanceMap.Clear();
             return base.Deinitialize();
         }
+
+#if UNITY_EDITOR
+        virtual public void WasAssignedToBuildTarget(BuildTargetGroup buildTargetGroup)
+        {
+
+        }
+
+        virtual public void WasUnassignedFromBuildTarget(BuildTargetGroup buildTargetGroup)
+        {
+
+        }
+#endif
     }
 }

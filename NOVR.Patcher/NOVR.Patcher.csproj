@@ -22,11 +22,24 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\NOVR.XR.Management\NOVR.XR.Management.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\NOVR.XR.OpenXR\NOVR.XR.OpenXR.csproj" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Content Include="CopyToGame\**" >
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
         <Content Include="classdata.tpk">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="$(BuildOutputDir)/plugins/Unity.XR.Management.dll">
+            <Link>CopyToGame\Data\Managed\Unity.XR.Management.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Include="$(BuildOutputDir)/plugins/Unity.XR.OpenXR.dll">
+            <Link>CopyToGame\Data\Managed\Unity.XR.OpenXR.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 

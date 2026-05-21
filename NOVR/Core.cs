@@ -33,9 +33,6 @@ public class Core : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         gameObject.AddComponent<VrCameraManager>();
         gameObject.AddComponent<EventBus>();
-
-        // TODO: Emulate input.   
-        // UuvrBehaviour.Create<UuvrInput>(transform);
     }
 
     private void OnDestroy()
@@ -43,23 +40,6 @@ public class Core : MonoBehaviour
         Debug.Log("NOVR has been destroyed. This shouldn't have happened. Recreating...");
         
         Create();
-    }
-
-    private void Start()
-    {
-        
-        
-        var xrDeviceType = Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.XRModule") ??
-                           Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.VRModule") ??
-                           Type.GetType("UnityEngine.VR.VRDevice, UnityEngine.VRModule") ??
-                           Type.GetType("UnityEngine.VR.VRDevice, UnityEngine");
-
-        _refreshRateProperty = xrDeviceType?.GetProperty("refreshRate");
-        
-        _vrUi = NOVRBehaviour.Create<NOUIManager>(transform);
-        _thingDisabler = NOVRBehaviour.Create<ThingDisabler>(transform);
-
-        _vrTogglerManager = new VrTogglerManager();
     }
 
 

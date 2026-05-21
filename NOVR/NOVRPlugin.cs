@@ -27,6 +27,12 @@ public class NOVRPlugin : BaseUnityPlugin
     public NOVRPlugin()
     {
         InputTracking.trackingAcquired += TrackingAcquired;
+        _instance = this;
+        ModFolderPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(NOVRPlugin)).Location);
+        
+        new ModConfiguration(Config);
+        Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
+        Core.Create();
     }
 
     private void TrackingAcquired(XRNodeState obj)
@@ -36,11 +42,6 @@ public class NOVRPlugin : BaseUnityPlugin
      
     private void Awake()
     {
-        _instance = this;
-        ModFolderPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(NOVRPlugin)).Location);
-        
-        new ModConfiguration(Config);
-        Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
-        Core.Create();
+
     }
 }

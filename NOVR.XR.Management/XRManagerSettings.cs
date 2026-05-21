@@ -113,6 +113,9 @@ namespace UnityEngine.XR.Management
         public List<XRLoader> loaders
         {
             get { return m_Loaders; }
+#if UNITY_EDITOR
+            set { m_Loaders = value; }
+#endif
         }
 
         /// <summary>
@@ -268,6 +271,10 @@ namespace UnityEngine.XR.Management
             if (loader == null || currentLoaders.Contains(loader))
                 return false;
 
+#if UNITY_EDITOR
+            if (!EditorApplication.isPlaying && !m_RegisteredLoaders.Contains(loader))
+                m_RegisteredLoaders.Add(loader);
+#endif
             if (!m_RegisteredLoaders.Contains(loader))
                 return false;
 
@@ -301,6 +308,11 @@ namespace UnityEngine.XR.Management
             if (currentLoaders.Contains(loader))
                 removedLoader = currentLoaders.Remove(loader);
 
+#if UNITY_EDITOR
+            if (!EditorApplication.isPlaying && !currentLoaders.Contains(loader))
+                m_RegisteredLoaders.Remove(loader);
+#endif
+
             return removedLoader;
         }
 
@@ -322,6 +334,23 @@ namespace UnityEngine.XR.Management
         public bool TrySetLoaders(List<XRLoader> reorderedLoaders)
         {
             var originalLoaders = new List<XRLoader>(activeLoaders);
+#if UNITY_EDITOR
+            if (!EditorApplication.isPlaying)
+            {
+                registeredLoaders.Clear();
+                currentLoaders.Clear();
+                foreach (var loader in reorderedLoaders)
+                {
+                    if (!TryAddLoader(loader))
+                    {
+                        TrySetLoaders(originalLoaders);
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+#endif
             currentLoaders.Clear();
             foreach (var loader in reorderedLoaders)
             {
@@ -349,8 +378,8 @@ namespace UnityEngine.XR.Management
 
         private bool CheckGraphicsAPICompatibility(XRLoader loader)
         {
-            var deviceType = SystemInfo.graphicsDeviceType;
-            var supportedDeviceTypes = loader.GetSupportedGraphicsDeviceTypes(false);
+            GraphicsDeviceType deviceType = SystemInfo.graphicsDeviceType;
+            List<GraphicsDeviceType> supportedDeviceTypes = loader.GetSupportedGraphicsDeviceTypes(false);
 
             // To help with backward compatibility, if the compatibility list is empty we assume that it does not implement the GetSupportedGraphicsDeviceTypes method
             // Therefore we revert to the previous behavior of building or starting the loader regardless of gfx api settings.
@@ -389,7 +418,7 @@ namespace UnityEngine.XR.Management
         /// If there is an active loader, this will request the loader to stop all the subsystems that it
         /// is managing.
         ///
-        /// You must wait for <see cref="isInitializationComplete"/> to be set to tru prior to calling this API.
+        /// You must wait for <see cref="isInitializationComplete"/> to be set to true before calling this API.
         /// </summary>
         public void StopSubsystems()
         {
@@ -412,7 +441,7 @@ namespace UnityEngine.XR.Management
         /// management. We will automatically call <see cref="StopSubsystems"/> prior to deinitialization to make sure
         /// that things are cleaned up appropriately.
         ///
-        /// You must wait for <see cref="isInitializationComplete"/> to be set to tru prior to calling this API.
+        /// You must wait for <see cref="isInitializationComplete"/> to be set to true before calling this API.
         ///
         /// Upon return <see cref="isInitializationComplete"/> will be rest to false;
         /// </summary>
@@ -463,6 +492,7 @@ namespace UnityEngine.XR.Management
 
         // To modify the list of loaders internally use `currentLoaders` as it will return a list reference rather
         // than a shallow copy.
+        // TODO @davidmo 10/12/2020: remove this in next major version bump and make 'loaders' internal.
         internal List<XRLoader> currentLoaders
         {
             get { return m_Loaders; }
