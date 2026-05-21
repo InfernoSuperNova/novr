@@ -54,19 +54,19 @@ public class Patcher
         var applySettingsMethod = openXrSettingsType.Methods.FirstOrDefault(method => method.Name == "ApplySettings");
         if (applySettingsMethod != null)
         {
-            ForceSinglePassInstanced(applySettingsMethod, renderModeField, openXrSettingsType);
+            ForceMultiPass(applySettingsMethod, renderModeField, openXrSettingsType);
         }
 
         var awakeMethod = openXrSettingsType.Methods.FirstOrDefault(method => method.Name == "Awake");
         if (awakeMethod != null)
         {
-            ForceSinglePassInstanced(awakeMethod, renderModeField, openXrSettingsType);
+            ForceMultiPass(awakeMethod, renderModeField, openXrSettingsType);
         }
 
-        Console.WriteLine("[NOVR.Patcher] Patched OpenXRSettings to force SinglePassInstanced.");
+        Console.WriteLine("[NOVR.Patcher] Patched OpenXRSettings to force MultiPass.");
     }
 
-    private static void ForceSinglePassInstanced(MethodDefinition method, FieldDefinition renderModeField, TypeDefinition openXrSettingsType)
+    private static void ForceMultiPass(MethodDefinition method, FieldDefinition renderModeField, TypeDefinition openXrSettingsType)
     {
         if (!method.HasBody)
         {
@@ -77,7 +77,7 @@ public class Patcher
         var singlePassValue = openXrSettingsType.NestedTypes
             .First(type => type.Name == "RenderMode")
             .Fields
-            .First(field => field.Name == "SinglePassInstanced");
+            .First(field => field.Name == "MultiPass");
 
         var il = method.Body.GetILProcessor();
         var firstInstruction = method.Body.Instructions.First();

@@ -25,12 +25,6 @@ public class ModConfiguration
         [Description("OpenVR")] OpenVr,
         [Description("OpenXR")] OpenXr,
     }
-
-    public enum OpenXrRenderMode
-    {
-        [Description("Single Pass Instanced")] SinglePassInstanced,
-        [Description("Multi Pass")] MultiPass,
-    }
 #endif
 
     public enum UiRenderMode
@@ -87,11 +81,8 @@ public class ModConfiguration
     public readonly ConfigEntry<bool> RenderProfilerPatchConstructors;
     public readonly ConfigEntry<bool> RenderProfilerLogEachPatch;
     public readonly ConfigEntry<bool> OpenXrSymmetricProjection;
-
-#if MODERN
+    
     public readonly ConfigEntry<VrApi> PreferredVrApi;
-    public readonly ConfigEntry<OpenXrRenderMode> OpenXrRenderModeSetting;
-#endif
 
     public ModConfiguration(ConfigFile config)
     {
@@ -105,12 +96,6 @@ public class ModConfiguration
             "Preferred VR APi",
             VrApi.OpenXr,
             "VR API to use. Depending on the game, some APIs might be unavailable, so UUVR will fall back to one that works.");
-
-        OpenXrRenderModeSetting = config.Bind(
-            "OpenXR",
-            "Render Mode",
-            OpenXrRenderMode.SinglePassInstanced,
-            "Stereo rendering mode for OpenXR. Single Pass Instanced is much faster when the game's shaders and render path support it; switch to Multi Pass if rendering breaks.");
 #endif
 
         CameraTracking = config.Bind(

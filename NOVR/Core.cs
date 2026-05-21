@@ -42,6 +42,24 @@ public class Core : MonoBehaviour
         Create();
     }
 
+    private void Start()
+    {
+        
+        
+        var xrDeviceType = Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.XRModule") ??
+                           Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.VRModule") ??
+                           Type.GetType("UnityEngine.VR.VRDevice, UnityEngine.VRModule") ??
+                           Type.GetType("UnityEngine.VR.VRDevice, UnityEngine");
+
+        _refreshRateProperty = xrDeviceType?.GetProperty("refreshRate");
+        
+        _vrUi = NOVRBehaviour.Create<NOUIManager>(transform);
+        _thingDisabler = NOVRBehaviour.Create<ThingDisabler>(transform);
+
+        _vrTogglerManager = new VrTogglerManager();
+        
+    }
+
 
 
     private void Update()
