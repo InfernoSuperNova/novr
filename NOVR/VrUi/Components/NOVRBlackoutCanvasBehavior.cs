@@ -11,7 +11,7 @@ public class NOVRBlackoutCanvasBehavior : MonoBehaviour
         if (canvas == null) throw new Exception($"{typeof(NOVRBlackoutCanvasBehavior)} attached to {typeof(GameObject)} without {typeof(Canvas)} component.");
         
         ApplyVrUiLayerRecursive(canvas.transform);
-        canvas.transform.localPosition = canvas.transform.localPosition with { z = 0 };
+        canvas.transform.localPosition = canvas.transform.localPosition with { x = -500, y = -500, z = 0 };
         canvas.transform.localScale = Vector3.one * 100;
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
         canvas.worldCamera = EventBus.CockpitHudCamera;
