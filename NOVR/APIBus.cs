@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace NOVR;
 
-public class EventBus : MonoBehaviour
+public class APIBus : MonoBehaviour
 {
     #region API Properties
     public static Camera MainCamera => _previousMainCamera;
@@ -19,19 +19,19 @@ public class EventBus : MonoBehaviour
     
 
     
-    private static EventBus? _current;
+    private static APIBus? _current;
 
 
     private bool _loggedExtraEventsError = false;
     private HandoffState _state = HandoffState.NoState;
     
 
-    private EventBus()
+    private APIBus()
     {
         if (CheckExtraDispatchers())
         {
             string trace = StackTraceUtility.ExtractStackTrace();
-            Debug.Log($"{typeof(EventBus)} ctor stack: " + trace);
+            Debug.Log($"{typeof(APIBus)} ctor stack: " + trace);
         }
     }
     
@@ -62,7 +62,7 @@ public class EventBus : MonoBehaviour
         {
             case HandoffState.NoState:
             case HandoffState.GodFuckingKnows:
-                throw new Exception($"Invalid state in {typeof(EventBus)}! State: {_state}");
+                throw new Exception($"Invalid state in {typeof(APIBus)}! State: {_state}");
             case HandoffState.InitialDispatcher:
                 _current = this;
                 return true;
@@ -75,7 +75,7 @@ public class EventBus : MonoBehaviour
             case HandoffState.ImproperHandoff:
                 _current = this;
                 if (oldState == HandoffState.AwaitingPreviousDisposal)
-                    Debug.LogWarning($"{typeof(EventBus)}: Successful handoff after suspicious state");
+                    Debug.LogWarning($"{typeof(APIBus)}: Successful handoff after suspicious state");
                 return true;
         }
         throw new Exception("How did we get here?");
@@ -102,7 +102,7 @@ public class EventBus : MonoBehaviour
     private void LogExtraDispatcher()
     {
         if (!_loggedExtraEventsError) return;
-        Debug.LogError($"Additional instances of {typeof(EventBus)}. This should not happen!");
+        Debug.LogError($"Additional instances of {typeof(APIBus)}. This should not happen!");
         
         _loggedExtraEventsError = true;
     }

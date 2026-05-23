@@ -13,8 +13,8 @@ internal static class VrHudProjection
     public static bool TryProjectToCockpitHud(Vector3 worldPosition, out Vector3 hudPosition)
     {
         hudPosition = Vector3.zero;
-        var mainCamera = EventBus.MainCamera;
-        var cockpitHudCamera = EventBus.CockpitHudCamera;
+        var mainCamera = APIBus.MainCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (mainCamera == null || cockpitHudCamera == null)
             return false;
 
@@ -29,8 +29,8 @@ internal static class VrHudProjection
     public static bool TryProjectDirectionToCockpitHud(Vector3 worldPosition, out Vector3 hudPosition)
     {
         hudPosition = Vector3.zero;
-        var mainCamera = EventBus.MainCamera;
-        var cockpitHudCamera = EventBus.CockpitHudCamera;
+        var mainCamera = APIBus.MainCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (mainCamera == null || cockpitHudCamera == null)
             return false;
 
@@ -46,8 +46,8 @@ internal static class VrHudProjection
     {
         hudPosition = Vector3.zero;
         arrowAngle = 0.0f;
-        var mainCamera = EventBus.MainCamera;
-        var cockpitHudCamera = EventBus.CockpitHudCamera;
+        var mainCamera = APIBus.MainCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (mainCamera == null || cockpitHudCamera == null)
             return false;
 

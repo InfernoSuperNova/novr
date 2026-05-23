@@ -24,8 +24,8 @@ internal static class HudTurretCrosshairPatch
             var onTarget = turret.IsOnTarget();
             
 
-            var crosshairDirection = EventBus.MainCamera.transform.InverseTransformDirection(direction);
-            crosshairDirection = EventBus.CockpitHudCamera.transform.TransformDirection(crosshairDirection);
+            var crosshairDirection = APIBus.MainCamera.transform.InverseTransformDirection(direction);
+            crosshairDirection = APIBus.CockpitHudCamera.transform.TransformDirection(crosshairDirection);
             
             crosshairPosition = crosshairDirection * 1000f;
             crosshair.gameObject.transform.position = crosshairPosition;

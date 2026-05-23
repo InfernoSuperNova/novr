@@ -14,7 +14,7 @@ public class NOVRBlackoutCanvasBehavior : MonoBehaviour
         canvas.transform.localPosition = canvas.transform.localPosition with { x = -500, y = -500, z = 0 };
         canvas.transform.localScale = Vector3.one * 100;
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
-        canvas.worldCamera = EventBus.CockpitHudCamera;
+        canvas.worldCamera = APIBus.CockpitHudCamera;
         canvas.planeDistance = 1f;
     }
     

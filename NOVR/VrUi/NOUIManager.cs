@@ -30,12 +30,12 @@ public class NOUIManager : NOVRBehaviour
     private new void Awake()
     {
         base.Awake();
-        EventBus.OnMainCameraChanged += OnMainCameraChanged;
+        APIBus.OnMainCameraChanged += OnMainCameraChanged;
     }
 
     private void OnDestroy()
     {
-        EventBus.OnMainCameraChanged -= OnMainCameraChanged;
+        APIBus.OnMainCameraChanged -= OnMainCameraChanged;
     }
 
     private void Start()

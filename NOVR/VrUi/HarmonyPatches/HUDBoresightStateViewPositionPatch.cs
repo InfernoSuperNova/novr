@@ -23,8 +23,8 @@ internal static class HUDBoresightStateViewPositionPatch
         [HarmonyPostfix]
         private static void Postfix(global::HUDBoresightState __instance, Aircraft aircraft, List<Unit> targetList)
         {
-            var mainCamera = EventBus.MainCamera;
-            var cockpitHudCamera = EventBus.CockpitHudCamera;
+            var mainCamera = APIBus.MainCamera;
+            var cockpitHudCamera = APIBus.CockpitHudCamera;
             if (mainCamera == null || cockpitHudCamera == null || aircraft == null)
                 return;
 
@@ -85,7 +85,7 @@ internal static class HUDBoresightStateViewPositionPatch
         var targetPosition = (Image)TargetPositionField.GetValue(state);
         var projectedPosition = (Image)ProjectedPositionField.GetValue(state);
         var line = (Image)LineField.GetValue(state);
-        var cockpitHudCamera = EventBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (boresight == null || targetPosition == null || projectedPosition == null || line == null || cockpitHudCamera == null)
             return;
 
@@ -129,8 +129,8 @@ internal static class HUDBoresightStateViewPositionPatch
     private static bool TryProjectToCockpitHud(Vector3 worldPosition, out Vector3 hudPosition)
     {
         hudPosition = Vector3.zero;
-        var mainCamera = EventBus.MainCamera;
-        var cockpitHudCamera = EventBus.CockpitHudCamera;
+        var mainCamera = APIBus.MainCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (mainCamera == null || cockpitHudCamera == null)
             return false;
 

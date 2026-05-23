@@ -67,8 +67,8 @@ internal static class ThreatItemNotchDirectionPatch
             var missile = (global::Missile)MissileField.GetValue(__instance);
             var aircraft = SceneSingleton<CombatHUD>.i.aircraft;
             var worldPosition = aircraft.GlobalPosition().ToLocalPosition() + notchDirection * NotchIndicatorDistance;
-            var mainCamera = EventBus.MainCamera;
-            var cockpitHudCamera = EventBus.CockpitHudCamera;
+            var mainCamera = APIBus.MainCamera;
+            var cockpitHudCamera = APIBus.CockpitHudCamera;
             var mainCameraLocal = mainCamera.transform.InverseTransformPoint(worldPosition);
             var hudWorldPosition = cockpitHudCamera.transform.TransformPoint(mainCameraLocal);
             var mainCameraLocalNotchDirection = mainCamera.transform.InverseTransformDirection(notchDirection);
@@ -120,7 +120,7 @@ internal static class ThreatItemNotchDirectionPatch
 
         var missile = (global::Missile)MissileField.GetValue(threatItem);
         var aircraft = SceneSingleton<CombatHUD>.i.aircraft;
-        var mainCamera = EventBus.MainCamera;
+        var mainCamera = APIBus.MainCamera;
         if (missile == null || aircraft == null || mainCamera == null)
             return false;
 

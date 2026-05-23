@@ -37,8 +37,8 @@ internal static class DynamicMapRotationSafePatch
 
             var cameraPosition = SceneSingleton<CameraStateManager>.i.transform.position.ToGlobalPosition().AsVector3() * __instance.mapDisplayFactor;
             var aircraftForward = combatHud.aircraft.transform.forward with { y = 0.0f };
-            var viewForward = EventBus.MainCamera != null
-                ? EventBus.MainCamera.transform.forward
+            var viewForward = APIBus.MainCamera != null
+                ? APIBus.MainCamera.transform.forward
                 : SceneSingleton<CameraStateManager>.i.transform.forward;
             viewForward.y = 0.0f;
             if (viewForward.sqrMagnitude <= Mathf.Epsilon)

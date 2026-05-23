@@ -32,8 +32,8 @@ internal static class FlightHudVelocityVectorPatch
             if (!velocityVector.gameObject.activeSelf)
                 return;
 
-            var mainCamera = EventBus.MainCamera;
-            var cockpitHudCamera = EventBus.CockpitHudCamera;
+            var mainCamera = APIBus.MainCamera;
+            var cockpitHudCamera = APIBus.CockpitHudCamera;
             if (mainCamera == null || cockpitHudCamera == null)
                 return;
 

@@ -33,7 +33,7 @@ internal static class TurretVrCameraPatch
                 return true;
             }
 
-            var vrCamera = EventBus.MainCamera;
+            var vrCamera = APIBus.MainCamera;
             if (vrCamera == null)
             {
                 return true;

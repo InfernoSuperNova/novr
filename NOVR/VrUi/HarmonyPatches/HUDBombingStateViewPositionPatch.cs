@@ -23,8 +23,8 @@ internal static class HUDBombingStateViewPositionPatch
         [HarmonyPostfix]
         private static void Postfix(global::HUDBombingState __instance, Aircraft aircraft)
         {
-            var mainCamera = EventBus.MainCamera;
-            var cockpitHudCamera = EventBus.CockpitHudCamera;
+            var mainCamera = APIBus.MainCamera;
+            var cockpitHudCamera = APIBus.CockpitHudCamera;
             if (mainCamera == null || cockpitHudCamera == null || aircraft == null)
                 return;
 
@@ -42,7 +42,7 @@ internal static class HUDBombingStateViewPositionPatch
         var ccrpCircle = (Image)CcrpCircleField.GetValue(state);
         var dropCountdown = (Text)DropCountdownField.GetValue(state);
         var ccrpFallTime = (Text)CcrpFallTimeField.GetValue(state);
-        var cockpitHudCamera = EventBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (alignmentBar == null || cockpitHudCamera == null || !alignmentBar.gameObject.activeSelf)
             return;
 
@@ -79,7 +79,7 @@ internal static class HUDBombingStateViewPositionPatch
         var ccipLine = (Image)CcipLineField.GetValue(state);
         var ccipFallTime = (Text)CcipFallTimeField.GetValue(state);
         var velocityVector = SceneSingleton<FlightHud>.i.velocityVector;
-        var cockpitHudCamera = EventBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (ccipPipper == null || ccipLine == null || cockpitHudCamera == null || velocityVector == null || !ccipPipper.enabled)
             return;
 

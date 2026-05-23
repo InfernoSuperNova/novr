@@ -6,7 +6,7 @@ namespace NOVR.VrUi.SpecialBehavior;
 public class MainCameraSlaved : MonoBehaviour
 {
 
-    private Camera MainCamera => EventBus.MainCamera;
+    private Camera MainCamera => APIBus.MainCamera;
 
     private void Update()
     {

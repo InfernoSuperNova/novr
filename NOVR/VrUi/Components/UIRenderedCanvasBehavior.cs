@@ -26,7 +26,7 @@ public class UIRenderedCanvasBehavior : MonoBehaviour
         
         canvas.renderMode = RenderMode.WorldSpace;
         Debug.Log($"{GetType().Name}: Set canvas render mode of {canvas.gameObject.name}. Is currently:  {canvas.renderMode}");
-        canvas.worldCamera = EventBus.CockpitHudCamera;
+        canvas.worldCamera = APIBus.CockpitHudCamera;
         Debug.Log($"{GetType().Name}: Set canvas world camera of {canvas.gameObject.name}. Is currently:  {canvas.worldCamera}");
         canvas.planeDistance = 1f;
     }

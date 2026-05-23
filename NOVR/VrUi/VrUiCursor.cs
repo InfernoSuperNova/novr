@@ -30,7 +30,7 @@ public class VrUiCursor: NOVRBehaviour
     
     private int ScreenWidth => Screen.width;
     private int ScreenHeight => Screen.height;
-    public Camera UiCamera =>  EventBus.CockpitHudCamera;
+    public Camera UiCamera =>  APIBus.CockpitHudCamera;
     
     
     public Vector2 GetScreenPoint() => _cursor ? UiCamera.WorldToScreenPoint(_cursor.transform.position)  : Vector2.zero;

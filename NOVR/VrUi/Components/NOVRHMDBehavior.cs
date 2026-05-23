@@ -10,7 +10,7 @@ public class NOVRHMDBehavior : UIRenderedCanvasBehavior
 
     private void Update()
     {
-        var uiCam = EventBus.CockpitHudReference;
+        var uiCam = APIBus.CockpitHudReference;
         transform.position = uiCam.transform.forward * _offset;
         transform.rotation = uiCam.transform.rotation;
         
