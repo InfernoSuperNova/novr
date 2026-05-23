@@ -22,11 +22,6 @@ public class VrCameraOffset: NOVRBehaviour
     {
         base.OnSettingChanged();
         var config = ModConfiguration.Instance;
-        
-        transform.localPosition = new Vector3(
-            config.CameraPositionOffsetX.Value,
-            config.CameraPositionOffsetY.Value,
-            config.CameraPositionOffsetZ.Value);
     }
 
     private void Update()

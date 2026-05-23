@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace NOVR.VrUi.SpecialBehavior;
 
 public class NOVRTargetDesignatorBehavior : UIRenderedCanvasBehavior
@@ -7,7 +9,8 @@ public class NOVRTargetDesignatorBehavior : UIRenderedCanvasBehavior
     private void Update()
     {
         var uiCam = APIBus.CockpitHudReference;
-        transform.position = uiCam.transform.forward * _offset;
-        transform.rotation = uiCam.transform.rotation;
+        
+        transform.rotation = Quaternion.SlerpUnclamped(Quaternion.identity, uiCam.transform.rotation, 1.1f);
+        transform.position = transform.forward * _offset;
     }
 }

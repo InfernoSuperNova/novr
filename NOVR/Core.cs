@@ -14,7 +14,8 @@ public class Core : MonoBehaviour
 {
     
     private float _originalFixedDeltaTime;
-    
+
+    private NOVRHeadsetData? _headsetData;
     private NOUIManager? _vrUi;
     private ThingDisabler? _thingDisabler;
     private PropertyInfo? _refreshRateProperty;
@@ -53,9 +54,10 @@ public class Core : MonoBehaviour
 
         _refreshRateProperty = xrDeviceType?.GetProperty("refreshRate");
         
+        _headsetData = NOVRBehaviour.Create<NOVRHeadsetData>(transform);
         _vrUi = NOVRBehaviour.Create<NOUIManager>(transform);
         _thingDisabler = NOVRBehaviour.Create<ThingDisabler>(transform);
-
+        
         _vrTogglerManager = new VrTogglerManager();
         
     }
@@ -92,7 +94,7 @@ public class Core : MonoBehaviour
     {
         _oldAircraft = _aircraft;
         GameManager.GetLocalAircraft(out _aircraft);
-        if (_aircraft != _oldAircraft) NOVRPoseDriver.Calibrate();
+        if (_aircraft != _oldAircraft) NOVRHeadsetData.CalibrateTranslation();
         CameraStateManager.enableMouseLook = false;
     }
 

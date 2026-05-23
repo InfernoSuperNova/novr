@@ -37,11 +37,13 @@ public class NOVRPlugin : BaseUnityPlugin
 
     private void TrackingAcquired(XRNodeState obj)
     {
-        NOVRPoseDriver.Calibrate();
+        NOVRHeadsetData.CalibrateTranslation();
     }
      
     private void Awake()
     {
 
     }
+    
+    
 }
