@@ -39,16 +39,19 @@ public class APIBus : MonoBehaviour
     
     public void Update()
     {
-        if (!CheckExtraDispatchers()) return;
+        CheckExtraDispatchers();
+    }
 
+    public static void SetMainCamera(Camera? newMainCamera)
+    {
+        if (newMainCamera == _previousMainCamera)
+        {
+            return;
+        }
 
-        var newMainCamera = Camera.main;                                                         
-        if (newMainCamera != _previousMainCamera)                                                
-        {                                                                                        
-            OnMainCameraChanged(_previousMainCamera, newMainCamera);                             
-            _previousMainCamera = newMainCamera;                                                 
-        }                                                                                        
-        
+        var previousMainCamera = _previousMainCamera;
+        _previousMainCamera = newMainCamera;
+        OnMainCameraChanged?.Invoke(previousMainCamera, newMainCamera);
     }
 
     /// <summary>

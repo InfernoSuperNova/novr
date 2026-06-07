@@ -5,6 +5,7 @@ using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 
 namespace NOVR.VrCamera;
 
@@ -13,11 +14,49 @@ public class VrCameraManager: MonoBehaviour
     private const string NuclearOptionMainCameraName = "Main Camera";
     private const string NuclearOptionMenuCameraName = "Menu Camera";
     private const string VrCameraChildName = "NOVR Main Camera";
+    private const float CameraScanIntervalSeconds = 0.5f;
     private static readonly string[] TrackedChildNames = {"cockpitRenderer", "postProcessingRenderer"};
 
     public static HashSet<Camera> IgnoredCameras = new();
-    
-    private void Update() // Todo: Make me behave on events if possible
+
+    private bool _scanRequested = true;
+    private float _nextCameraScanTime;
+
+    private void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        RequestCameraScan();
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void Update()
+    {
+        if (!_scanRequested && Time.unscaledTime < _nextCameraScanTime)
+        {
+            return;
+        }
+
+        _scanRequested = false;
+        _nextCameraScanTime = Time.unscaledTime + CameraScanIntervalSeconds;
+        ScanCameras();
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        RequestCameraScan();
+    }
+
+    private void RequestCameraScan()
+    {
+        _scanRequested = true;
+        _nextCameraScanTime = 0f;
+    }
+
+    private void ScanCameras()
     {
         Camera[] cameras = new Camera[Camera.allCamerasCount];
         Camera.GetAllCameras(cameras);
@@ -55,6 +94,7 @@ public class VrCameraManager: MonoBehaviour
         {
             IgnoredCameras.Add(rootCamera);
             IgnoredCameras.Add(existingTrackedCamera);
+            APIBus.SetMainCamera(existingTrackedCamera);
             return;
         }
 
@@ -92,6 +132,7 @@ public class VrCameraManager: MonoBehaviour
 
         IgnoredCameras.Add(rootCamera);
         IgnoredCameras.Add(trackedCamera);
+        APIBus.SetMainCamera(trackedCamera);
     }
 
     private void HandleChildCameras(Camera parentCamera)
