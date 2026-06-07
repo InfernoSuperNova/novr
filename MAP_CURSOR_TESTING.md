@@ -4,6 +4,75 @@ Branch: `vr-map-input-fix`
 
 This branch targets the Nuclear Option map issue where NOVR's VR cursor can hover/highlight map aircraft, but clicking them is rejected or behaves inconsistently.
 
+## Next Codex Session Handoff
+
+Start here on the Windows/headset machine.
+
+1. Open a shell in the repo or clone the fork:
+
+   ```powershell
+   git clone https://github.com/georgeciobanu/novr.git
+   cd novr
+   git switch vr-map-input-fix
+   ```
+
+   If the repo already exists:
+
+   ```powershell
+   git fetch george
+   git switch vr-map-input-fix
+   git pull
+   ```
+
+2. Build:
+
+   ```powershell
+   dotnet restore
+   dotnet build
+   ```
+
+3. Install the built plugin:
+
+   ```text
+   build-output/plugins/NOVR.dll
+   ```
+
+   Replace:
+
+   ```text
+   <Nuclear Option install>/BepInEx/plugins/NOVR.dll
+   ```
+
+4. Launch Nuclear Option in VR and collect:
+
+   ```text
+   <Nuclear Option install>/BepInEx/LogOutput.log
+   ```
+
+   Search for:
+
+   ```text
+   NOVR DynamicMap cursor:
+   ```
+
+5. First test with default branch settings:
+
+   ```ini
+   [UI]
+   Dynamic Map VR Cursor Fix Enabled = true
+
+   [Diagnostics]
+   Dynamic Map VR Cursor Diagnostics Enabled = true
+   ```
+
+6. If map clicks still fail, keep diagnostics enabled and capture logs for:
+   - hover aircraft, click aircraft;
+   - click `Select Aircraft`;
+   - one normal 16:9 resolution;
+   - one ultrawide/native monitor resolution.
+
+The Mac session committed and pushed this branch but did not produce a reliable DLL because the Mac-side local reference set was missing Unity's JSON serialization module for the vendored OpenXR project. Build on the Windows/game machine is the source of truth.
+
 ## What Changed
 
 - `NOVR/VrUi/VrUiPointerState.cs`
