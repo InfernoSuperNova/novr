@@ -45,6 +45,7 @@ public class VrUiCursor: NOVRBehaviour
     {
         if (!IsRealCursorVisible()) // This means we don't have to manually show and hide it every game update
         {
+            VrUiPointerState.SetInactive();
             if (_cursor != null)
             {
                 _cursor.SetActive(false);
@@ -60,10 +61,13 @@ public class VrUiCursor: NOVRBehaviour
         }
         if (_texture == null) return;
         UpdateCursorAngles();
+
+        var screenPoint = GetScreenPoint();
+        VrUiPointerState.SetActive(screenPoint, _realMouse.position.ReadValue());
         
         InputState.Change(_virtualMouse, new MouseState
         {
-            position = GetScreenPoint(),
+            position = screenPoint,
             buttons = _realMouse.leftButton.isPressed ? (ushort)1 : (ushort)0 
         });
         
