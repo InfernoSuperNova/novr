@@ -18,6 +18,7 @@ public class VrUiCursor: NOVRBehaviour
     private const int CursorTextureSize = 64;
     private const float CursorRingRadius = 12f;
     private const float CursorRingThickness = 4f;
+    private static readonly Vector2 CursorRectSize = new(CursorTextureSize, CursorTextureSize);
     private GameObject? _cursor;
     private RectTransform? _cursorRectTransform;
     private Canvas? _cursorCanvas;
@@ -100,9 +101,7 @@ public class VrUiCursor: NOVRBehaviour
         
         
         Vector3 direction = Quaternion.Euler(-cursorPitch, cursorYaw, 0f) * Vector3.forward;
-        var inScreenSpace = UiCamera.WorldToScreenPoint( direction * DefaultProjectionDistance);
-        var cursorDistance = GetDistanceUnderCursor(inScreenSpace);
-        Vector3 pos = direction * cursorDistance;
+        Vector3 pos = direction * DefaultProjectionDistance;
         _cursor.transform.position = pos;
         _cursor.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
     }
@@ -129,6 +128,11 @@ public class VrUiCursor: NOVRBehaviour
         _cursorCanvas.pixelPerfect = true;
 
         _cursorRectTransform = _cursor.GetComponent<RectTransform>();
+        _cursorRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        _cursorRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        _cursorRectTransform.pivot = new Vector2(0.5f, 0.5f);
+        _cursorRectTransform.anchoredPosition = Vector2.zero;
+        _cursorRectTransform.sizeDelta = CursorRectSize;
         _cursorImage = _cursor.AddComponent<RawImage>();
         _cursorImage.raycastTarget = false;
         _cursorImage.texture = _texture;
@@ -170,7 +174,9 @@ public class VrUiCursor: NOVRBehaviour
 
         foreach (var result in results)
         {
-            if (result.gameObject == _cursor || result.distance < 0f)
+            if (result.gameObject == _cursor ||
+                result.distance < 0f ||
+                result.gameObject.GetComponentInParent<global::MapIcon>() != null)
             {
                 continue;
             }
