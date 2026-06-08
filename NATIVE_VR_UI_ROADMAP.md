@@ -10,7 +10,7 @@ This roadmap breaks the native VR UI work into small, reviewable milestones. The
 - VR controllers are optional, not required.
 - Existing game UI may stay alive when it owns state or side effects.
 - Native VR UI should be introduced incrementally behind an experimental config option.
-- The tactical map should not be the first screen migrated.
+- The main menu parent shell is the first target, but deep submenus and the tactical map should remain separate milestones.
 - New UI should avoid inherited screen-space Z offsets, clipping masks, and fragile TextMeshPro mask interactions.
 
 ## Phase 0: Baseline And Guardrails
@@ -47,27 +47,31 @@ Acceptance criteria:
 - Mouse click, scroll, and cursor/ray state can be read from one place.
 - No existing gameplay UI is replaced yet.
 
-## Phase 2: First Native Panel
+## Phase 2: Main Menu Parent Shell
 
-Build one small, bounded native panel to validate layout, input, and lifecycle behavior.
+Build a native parent shell for the main menu to validate layout, input, and lifecycle behavior against the highest-level UI flow. This should not attempt to replace every submenu at once.
 
-Candidate screens:
+Initial scope:
 
-- Pause/resume panel.
-- Simple debug/status panel.
-- Small in-flight utility panel.
+- Top-level main menu panel.
+- Mouse-first hover/click behavior.
+- Native buttons that call existing game actions or delegate to original UI buttons.
+- Original main menu kept alive where it owns state or side effects.
+- Deep settings, loadout, mission selection, and tactical map flows left to later phases.
 
 Deliverables:
 
-- One native panel with text and clickable actions.
+- Native main menu parent panel with text and clickable actions.
 - Show/hide lifecycle controlled by the native UI root.
-- Game action adapter for the selected screen.
+- Game action adapter for top-level main menu actions.
+- Fallback path to the patched original main menu.
 
 Acceptance criteria:
 
-- Panel renders reliably in VR.
+- Parent main menu renders reliably in VR.
 - Mouse click and hover behavior work in headset.
 - Original game UI continues to function when native UI is disabled.
+- Top-level menu actions either work natively or cleanly delegate to original UI behavior.
 
 ## Phase 3: Game State And Action Adapters
 
@@ -91,8 +95,8 @@ Move selected non-map menus from patched original UI to native VR panels.
 
 Candidate order:
 
-1. Pause menu.
-2. Main menu navigation.
+1. Main menu submenus.
+2. Pause menu.
 3. Settings/options.
 4. Aircraft/loadout screens.
 
