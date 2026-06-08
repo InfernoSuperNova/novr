@@ -197,7 +197,12 @@ namespace UnityEngine.XR.OpenXR.Features.Mock
         /// <returns>Callback or null if no callback is set</returns>
         public static BeforeFunctionDelegate GetBeforeFunctionCallback(string function)
         {
-            return s_BeforeFunctionCallbacks?.GetValueOrDefault(function);
+            if (s_BeforeFunctionCallbacks == null)
+            {
+                return null;
+            }
+
+            return s_BeforeFunctionCallbacks.TryGetValue(function, out var callback) ? callback : null;
         }
 
         /// <summary>
@@ -207,7 +212,12 @@ namespace UnityEngine.XR.OpenXR.Features.Mock
         /// <returns>Callback or null if no callback is set</returns>
         public static AfterFunctionDelegate GetAfterFunctionCallback(string function)
         {
-            return s_AfterFunctionCallbacks?.GetValueOrDefault(function);
+            if (s_AfterFunctionCallbacks == null)
+            {
+                return null;
+            }
+
+            return s_AfterFunctionCallbacks.TryGetValue(function, out var callback) ? callback : null;
         }
 
         /// <summary>
