@@ -1,55 +1,65 @@
-# Native VR UI Architecture for Mouse-First Seated VR
+# Native VR Menu UI
 
 ## Summary
 
-This proposes adding a native VR UI layer alongside the current patched screen-space UI path. The goal is to reduce long-term maintenance caused by converting Nuclear Option's existing UI hierarchy into world space, especially around extreme local Z offsets, clipping masks, and TextMeshPro rendering issues.
+Adds an experimental native VR menu UI path for Nuclear Option's non-flight menus. The new path builds VR-first world-space UI instead of trying to render the game's existing screen-space menu hierarchy directly in VR.
 
-## Motivation
+This is gated behind the `Enable Native Menu UI` config value and keeps the existing menu UI alive for state ownership and action dispatch.
 
-Current UI issues mostly come from translating existing screen-space canvases into world-space VR canvases. Nuclear Option uses local Z values heavily in menus, which requires per-screen flattening and layout fixes. TextMeshPro text also appears to break when ancestor clipping masks are active after conversion to world space.
+## Included
 
-A native VR UI avoids those inherited layout assumptions by building VR-first panels and controls that are fed by game state and call existing game actions.
+- Experimental native VR menu root under `NOVR/VrUi/Native`.
+- Mouse-first VR pointer support for seated headset users.
+- Native main menu shell with existing game actions.
+- Native single player mission picker.
+- Native settings UI for audio, graphics, gameplay, controls, bindings, HUD, and chat settings.
+- Native bindings UI for keyboard, mouse, and assigned controllers.
+- Binding filters for device and assigned/unassigned/all actions.
+- Binding remap/assign flow through Rewired `InputMapper`.
+- Axis invert support for full-axis bindings.
+- Original main menu background reuse by cloning the source `Image`/`RawImage` into the native shell.
+- Original menu fallback preparation where the native UI should not own the screen.
+- SDK compatibility fix for ambiguous `GetValueOrDefault` calls in the mock OpenXR runtime.
 
-## Proposed Direction
+## Out Of Scope
 
-- Add a separate native VR UI system under `NOVR/VrUi/Native`.
-- Keep mouse as the primary input path for seated VR users.
-- Keep existing UI alive where needed for state ownership, but hide or bypass its presentation.
-- Replace screens incrementally 
+- In-flight menus and overlays, including tactical map and exit menu.
+- Mission editor replacement.
+- Multiplayer menu replacement.
+- Native VR controller laser-pointer input.
+- Removing the existing translated UI path.
 
-## Input Model
+## Design Notes
 
-Mouse should remain first-class:
+The native UI intentionally keeps the game's original menu objects available. The native panels call through `NativeGameActionAdapter`, which invokes existing buttons or menu actions where possible. This avoids duplicating game state logic while still avoiding the current VR rendering problems caused by screen-space-to-world-space conversion, Z offsets, masks, and TextMeshPro clipping behavior.
 
-- Headset controls view.
-- Mouse controls a VR cursor or panel cursor.
-- Mouse buttons click.
-- Scroll wheel scrolls lists/maps.
-- Keyboard remains available for text and shortcuts.
-
-## Implementation Plan
-
-1. Create a `VrPointerState` abstraction for mouse-driven VR UI input.
-2. Add a native VR UI root managed by `NOUIManager`.
-3. Build one experimental native panel.
-4. Add adapters for game state and game actions.
-5. Add a config switch between patched-original UI and native-experimental UI.
-6. Gradually migrate screens based on complexity.
-
-## Out of Scope
-
-- Full replacement of every menu in one PR.
-- VR controller support as a required input path.
-- Rebuilding the tactical map first.
-
-## Risks
-
-- Some game actions may need reflection or Harmony access.
-- Original UI may still need to exist for state side effects.
-- Dense UI may need panel-cursor mode instead of ray-only pointing.
+Mouse remains the primary input target for this PR because most current users are expected to use a headset with mouse and keyboard.
 
 ## Testing
 
-- Verify mouse click, scroll, and hover behavior in headset.
-- Verify original UI still maintains required game state.
-- Test with main menu, pause/menu flow, and in-flight UI independently.
+Build:
+
+```powershell
+dotnet build NOVR.Build\NOVR.Build.csproj -c Release
+```
+
+Manual in-game VR testing completed:
+
+- Native menu config appears after launching with the updated plugin.
+- Native main menu renders and responds to mouse clicks.
+- Exit game action works.
+- Single player mission picker opens and launches through existing game flow.
+- Settings panel opens from the native menu.
+- Audio, graphics, gameplay, controls, HUD, and chat settings render and update.
+- Bindings panel lists keyboard, mouse, and controller bindings.
+- Bindings panel can filter by device.
+- Bindings panel can filter assigned, unassigned, and all actions.
+- Binding remap and unassigned action assignment work.
+- Controller/device paging works.
+
+## Review Focus
+
+- Whether the native UI root lifecycle is safe around menu transitions.
+- Whether keeping the original UI alive but visually suppressed is acceptable.
+- Whether `NativeGameActionAdapter` should stay reflection/button-driven for now or move toward explicit game APIs where available.
+- Whether this should stay config-gated for one or more releases before becoming the default VR menu path.
