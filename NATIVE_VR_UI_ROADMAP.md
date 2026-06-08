@@ -151,7 +151,3 @@ Prefer small PRs:
 - PR 4+: individual menu migrations.
 
 Avoid combining scaffolding, multiple menu rewrites, and tactical map work in one PR.
-
-
-cd E:\NOVRMod\waldo170fork\novr
-dotnet build NOVR.Build\NOVR.Build.csproj -c Release
