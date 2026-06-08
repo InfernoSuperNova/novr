@@ -7,8 +7,9 @@ namespace NOVR.VrUi.Native;
 public class NativeVrUiRoot : NOVRBehaviour
 {
     private const float MenuDistanceMeters = 3f;
-    private const float CanvasScale = 0.00125f;
+    private const float CanvasScale = 0.0015625f;
     private const float MainMenuScanIntervalSeconds = 0.5f;
+    private const float RequestedMenuTransitionSeconds = 0.5f;
 
     private readonly NativeGameActionAdapter _actions = new();
     private readonly VrPointerState _pointerState = new();
@@ -16,6 +17,7 @@ public class NativeVrUiRoot : NOVRBehaviour
     private Canvas? _canvas;
     private NativeMainMenuShell? _mainMenuShell;
     private NativeSinglePlayerMissionPanel? _singlePlayerMissionPanel;
+    private NativeSettingsPanel? _settingsPanel;
     private GameObject? _mainCanvas;
     private CanvasGroup? _suppressedMainCanvasGroup;
     private bool _mainCanvasHadCanvasGroup;
@@ -23,6 +25,8 @@ public class NativeVrUiRoot : NOVRBehaviour
     private bool _mainCanvasOriginalInteractable;
     private bool _mainCanvasOriginalBlocksRaycasts;
     private bool _singlePlayerMissionPickerRequested;
+    private bool _settingsRequested;
+    private float _settingsRequestTime;
     private float _nextMainMenuScanTime;
 
     public VrPointerState PointerState => _pointerState;
@@ -48,24 +52,37 @@ public class NativeVrUiRoot : NOVRBehaviour
         UpdatePlacement();
         ScanForMainMenuCanvas();
 
-        var shouldShowMainMenu = _mainCanvas != null &&
-                                 _mainCanvas.activeInHierarchy &&
-                                 _actions.IsTopLevelMainMenuAvailable;
+        var mainCanvasActive = _mainCanvas != null && _mainCanvas.activeInHierarchy;
+        var controlMapperOpen = IsControlMapperOpen();
         var shouldShowSinglePlayerMissionPicker = _singlePlayerMissionPickerRequested &&
-                                                  _mainCanvas != null &&
-                                                  _mainCanvas.activeInHierarchy &&
-                                                  !shouldShowMainMenu &&
+                                                  !controlMapperOpen &&
+                                                  mainCanvasActive &&
                                                   IsMissionPickerAvailable();
+        var shouldShowSettings = _settingsRequested &&
+                                 !controlMapperOpen &&
+                                 mainCanvasActive &&
+                                 IsSettingsMenuAvailable();
+        var waitingForSettingsMenu = _settingsRequested &&
+                                     !shouldShowSettings &&
+                                     Time.unscaledTime - _settingsRequestTime < RequestedMenuTransitionSeconds;
+        var shouldShowMainMenu = mainCanvasActive &&
+                                 !controlMapperOpen &&
+                                 _actions.IsTopLevelMainMenuAvailable &&
+                                 !shouldShowSinglePlayerMissionPicker &&
+                                 !shouldShowSettings &&
+                                 !waitingForSettingsMenu;
 
         if (shouldShowMainMenu)
         {
             _singlePlayerMissionPickerRequested = false;
+            _settingsRequested = false;
         }
 
         _mainMenuShell?.SetVisible(shouldShowMainMenu);
         _singlePlayerMissionPanel?.SetVisible(shouldShowSinglePlayerMissionPicker);
+        _settingsPanel?.SetVisible(shouldShowSettings);
 
-        var shouldShowNativeUi = shouldShowMainMenu || shouldShowSinglePlayerMissionPicker;
+        var shouldShowNativeUi = shouldShowMainMenu || shouldShowSinglePlayerMissionPicker || shouldShowSettings;
         if (_root != null && _root.activeSelf != shouldShowNativeUi)
         {
             _root.SetActive(shouldShowNativeUi);
@@ -116,9 +133,13 @@ public class NativeVrUiRoot : NOVRBehaviour
 
         _mainMenuShell = _root.AddComponent<NativeMainMenuShell>();
         _mainMenuShell.Initialize(_actions, rectTransform);
+        _mainMenuShell.SetOriginalMainCanvas(_mainCanvas);
         _singlePlayerMissionPanel = _root.AddComponent<NativeSinglePlayerMissionPanel>();
         _singlePlayerMissionPanel.Initialize(_actions, rectTransform);
         _singlePlayerMissionPanel.SetVisible(false);
+        _settingsPanel = _root.AddComponent<NativeSettingsPanel>();
+        _settingsPanel.Initialize(_actions, rectTransform);
+        _settingsPanel.SetVisible(false);
         _actions.ActionInvoked += OnNativeActionInvoked;
         _root.SetActive(false);
 
@@ -153,6 +174,7 @@ public class NativeVrUiRoot : NOVRBehaviour
         RestoreOriginalMainCanvas();
         _mainCanvas = mainCanvas;
         _actions.SetOriginalMainCanvas(_mainCanvas);
+        _mainMenuShell?.SetOriginalMainCanvas(_mainCanvas);
     }
 
     private static GameObject? FindMainCanvas()
@@ -186,9 +208,35 @@ public class NativeVrUiRoot : NOVRBehaviour
         return false;
     }
 
+    private bool IsSettingsMenuAvailable()
+    {
+        if (_mainCanvas == null) return false;
+
+        var settingsMenus = _mainCanvas.GetComponentsInChildren<global::SettingsMenu>(true);
+        for (var index = 0; index < settingsMenus.Length; index++)
+        {
+            if (settingsMenus[index].gameObject.activeInHierarchy)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsControlMapperOpen()
+    {
+        return GameManager.controlMapper != null && GameManager.controlMapper.isOpen;
+    }
+
     private void OnNativeActionInvoked(NativeGameAction action)
     {
         _singlePlayerMissionPickerRequested = action == NativeGameAction.SinglePlayer;
+        _settingsRequested = action == NativeGameAction.Settings;
+        if (_settingsRequested)
+        {
+            _settingsRequestTime = Time.unscaledTime;
+        }
     }
 
     private void SuppressOriginalMainCanvas(bool suppress)

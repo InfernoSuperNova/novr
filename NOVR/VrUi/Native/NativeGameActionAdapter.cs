@@ -103,11 +103,8 @@ public class NativeGameActionAdapter
 
     public void QuitGame()
     {
-        if (!TryInvoke(NativeGameAction.ExitGame))
-        {
-            Debug.Log("[NOVR] Native UI falling back to Application.Quit for ExitGame.");
-            Application.Quit();
-        }
+        Debug.Log("[NOVR] Native UI quitting game.");
+        Application.Quit();
     }
 
     public bool TryInvokeCurrentMenuButton(string actionName, params string[] candidateLabels)
@@ -130,6 +127,29 @@ public class NativeGameActionAdapter
         }
 
         Debug.LogWarning($"[NOVR] Native UI current-menu action '{actionName}' could not find an original menu button. Candidates: {string.Join(", ", candidateLabels)}. Available buttons: {DescribeButtons(buttons)}");
+        return false;
+    }
+
+    public bool TryCloseSettingsMenu()
+    {
+        if (_originalMainCanvas == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI settings close ignored because the original MainCanvas is not available.");
+            return false;
+        }
+
+        var settingsMenus = _originalMainCanvas.GetComponentsInChildren<global::SettingsMenu>(true);
+        for (var index = 0; index < settingsMenus.Length; index++)
+        {
+            var settingsMenu = settingsMenus[index];
+            if (!settingsMenu.gameObject.activeInHierarchy) continue;
+
+            Debug.Log($"[NOVR] Native UI closing original settings menu '{GetGameObjectPath(settingsMenu.gameObject)}'.");
+            settingsMenu.CloseSettingsMenu();
+            return true;
+        }
+
+        Debug.LogWarning("[NOVR] Native UI could not find an active original settings menu to close.");
         return false;
     }
 
