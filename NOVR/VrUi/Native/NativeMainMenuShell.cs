@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -14,22 +12,16 @@ public class NativeMainMenuShell : MonoBehaviour
     private static readonly Color ButtonPressedColor = new(0.16f, 0.20f, 0.22f, 1f);
     private static readonly Color ExitButtonColor = new(0.62f, 0.12f, 0.14f, 0.96f);
 
-    private NativeVrUiRoot? _root;
+    private NativeGameActionAdapter? _actions;
     private RectTransform? _rectTransform;
-    private GameObject? _originalMainCanvas;
     private Font? _font;
 
-    public void Initialize(NativeVrUiRoot root, RectTransform rectTransform)
+    public void Initialize(NativeGameActionAdapter actions, RectTransform rectTransform)
     {
-        _root = root;
+        _actions = actions;
         _rectTransform = rectTransform;
         _font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         BuildLayout();
-    }
-
-    public void SetOriginalMainCanvas(GameObject? originalMainCanvas)
-    {
-        _originalMainCanvas = originalMainCanvas;
     }
 
     private void BuildLayout()
@@ -44,12 +36,12 @@ public class NativeMainMenuShell : MonoBehaviour
 
         var primaryButtons = new[]
         {
-            new MenuAction("SINGLE PLAYER", new[] { "SINGLE PLAYER", "SINGLEPLAYER" }),
-            new MenuAction("MULTIPLAYER", new[] { "MULTIPLAYER" }),
-            new MenuAction("MISSION EDITOR", new[] { "MISSION EDITOR", "MISSIONEDITOR" }),
-            new MenuAction("SETTINGS", new[] { "SETTINGS", "OPTIONS" }),
-            new MenuAction("ENCYCLOPEDIA", new[] { "ENCYCLOPEDIA" }),
-            new MenuAction("WORKSHOP", new[] { "WORKSHOP" })
+            new MenuAction("SINGLE PLAYER", NativeGameAction.SinglePlayer),
+            new MenuAction("MULTIPLAYER", NativeGameAction.Multiplayer),
+            new MenuAction("MISSION EDITOR", NativeGameAction.MissionEditor),
+            new MenuAction("SETTINGS", NativeGameAction.Settings),
+            new MenuAction("ENCYCLOPEDIA", NativeGameAction.Encyclopedia),
+            new MenuAction("WORKSHOP", NativeGameAction.Workshop)
         };
 
         for (var index = 0; index < primaryButtons.Length; index++)
@@ -61,7 +53,7 @@ public class NativeMainMenuShell : MonoBehaviour
                 new Vector2(0f, 220f - index * 62f),
                 new Vector2(170f, 38f),
                 ButtonColor,
-                () => InvokeOriginalAction(action.CandidateLabels));
+                () => InvokeAction(action.Action));
         }
 
         CreateMenuButton(
@@ -70,21 +62,15 @@ public class NativeMainMenuShell : MonoBehaviour
             new Vector2(0f, -365f),
             new Vector2(170f, 38f),
             ExitButtonColor,
-            () =>
-            {
-                if (!InvokeOriginalAction(new[] { "EXIT GAME", "EXITGAME", "QUIT" }))
-                {
-                    Application.Quit();
-                }
-            });
+            () => _actions?.QuitGame());
 
         var linkPanel = CreatePanel("Secondary Links", _rectTransform, PanelColor, new Vector2(-520f, -335f), new Vector2(230f, 145f));
         var secondaryButtons = new[]
         {
-            new MenuAction("Change Log", new[] { "CHANGE LOG", "CHANGELOG" }),
-            new MenuAction("Control Changes", new[] { "CONTROL CHANGES" }),
-            new MenuAction("Development Roadmap", new[] { "DEVELOPMENT ROADMAP", "ROADMAP" }),
-            new MenuAction("Join our Community", new[] { "JOIN OUR COMMUNITY", "COMMUNITY", "DISCORD" })
+            new MenuAction("Change Log", NativeGameAction.ChangeLog),
+            new MenuAction("Control Changes", NativeGameAction.ControlChanges),
+            new MenuAction("Development Roadmap", NativeGameAction.DevelopmentRoadmap),
+            new MenuAction("Join our Community", NativeGameAction.Community)
         };
 
         for (var index = 0; index < secondaryButtons.Length; index++)
@@ -96,7 +82,7 @@ public class NativeMainMenuShell : MonoBehaviour
                 new Vector2(0f, 48f - index * 31f),
                 new Vector2(190f, 24f),
                 ButtonColor,
-                () => InvokeOriginalAction(action.CandidateLabels),
+                () => InvokeAction(action.Action),
                 13);
         }
 
@@ -105,59 +91,9 @@ public class NativeMainMenuShell : MonoBehaviour
         CreateText("Tip Body", tipPanel, "The SAH-46 Chicane is much better protected against machine gun fire than other aircraft.", new Vector2(0f, -12f), new Vector2(460f, 36f), 14, TextAnchor.MiddleCenter, new Color(0.8f, 0.86f, 0.88f, 1f));
     }
 
-    private bool InvokeOriginalAction(IReadOnlyCollection<string> candidateLabels)
+    private void InvokeAction(NativeGameAction action)
     {
-        var originalCanvas = _originalMainCanvas != null ? _originalMainCanvas : _root?.OriginalMainCanvas;
-        if (originalCanvas == null)
-        {
-            Debug.LogWarning("[NOVR] Native main menu action ignored because the original MainCanvas is not available.");
-            return false;
-        }
-
-        var buttons = originalCanvas.GetComponentsInChildren<Button>(true);
-        for (var index = 0; index < buttons.Length; index++)
-        {
-            var button = buttons[index];
-            var normalizedLabel = NormalizeLabel(GetButtonLabel(button));
-            foreach (var candidateLabel in candidateLabels)
-            {
-                if (normalizedLabel != NormalizeLabel(candidateLabel)) continue;
-
-                Debug.Log($"[NOVR] Native main menu delegated action '{candidateLabel}' to original button '{button.name}'.");
-                button.onClick.Invoke();
-                return true;
-            }
-        }
-
-        Debug.LogWarning($"[NOVR] Native main menu could not find original button for '{string.Join(", ", candidateLabels)}'.");
-        return false;
-    }
-
-    private string GetButtonLabel(Button button)
-    {
-        var legacyText = button.GetComponentInChildren<Text>(true);
-        if (legacyText != null && !string.IsNullOrWhiteSpace(legacyText.text))
-        {
-            return legacyText.text;
-        }
-
-        var tmpText = button.GetComponentInChildren<TMP_Text>(true);
-        if (tmpText != null && !string.IsNullOrWhiteSpace(tmpText.text))
-        {
-            return tmpText.text;
-        }
-
-        return button.name;
-    }
-
-    private static string NormalizeLabel(string label)
-    {
-        return label
-            .Replace(" ", string.Empty)
-            .Replace("\n", string.Empty)
-            .Replace("\r", string.Empty)
-            .Replace("\t", string.Empty)
-            .ToUpperInvariant();
+        _actions?.TryInvoke(action);
     }
 
     private RectTransform CreatePanel(string name, RectTransform parent, Color color, Vector2 anchoredPosition, Vector2 size)
@@ -221,13 +157,13 @@ public class NativeMainMenuShell : MonoBehaviour
 
     private readonly struct MenuAction
     {
-        public MenuAction(string label, string[] candidateLabels)
+        public MenuAction(string label, NativeGameAction action)
         {
             Label = label;
-            CandidateLabels = candidateLabels;
+            Action = action;
         }
 
         public string Label { get; }
-        public string[] CandidateLabels { get; }
+        public NativeGameAction Action { get; }
     }
 }

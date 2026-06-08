@@ -10,6 +10,7 @@ public class NativeVrUiRoot : NOVRBehaviour
     private const float CanvasScale = 0.00125f;
     private const float MainMenuScanIntervalSeconds = 0.5f;
 
+    private readonly NativeGameActionAdapter _actions = new();
     private readonly VrPointerState _pointerState = new();
     private GameObject? _root;
     private Canvas? _canvas;
@@ -24,6 +25,7 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     public VrPointerState PointerState => _pointerState;
     public GameObject? OriginalMainCanvas => _mainCanvas;
+    public NativeGameActionAdapter Actions => _actions;
 
     private void Start()
     {
@@ -94,7 +96,7 @@ public class NativeVrUiRoot : NOVRBehaviour
         LayerHelper.SetLayerRecursive(_root.transform, LayerHelper.GetVrUiLayer());
 
         _mainMenuShell = _root.AddComponent<NativeMainMenuShell>();
-        _mainMenuShell.Initialize(this, rectTransform);
+        _mainMenuShell.Initialize(_actions, rectTransform);
         _root.SetActive(false);
 
         Debug.Log("[NOVR] Native VR UI root created.");
@@ -127,7 +129,7 @@ public class NativeVrUiRoot : NOVRBehaviour
 
         RestoreOriginalMainCanvas();
         _mainCanvas = mainCanvas;
-        _mainMenuShell?.SetOriginalMainCanvas(_mainCanvas);
+        _actions.SetOriginalMainCanvas(_mainCanvas);
     }
 
     private static GameObject? FindMainCanvas()
