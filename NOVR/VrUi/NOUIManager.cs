@@ -1,5 +1,6 @@
 using System;
 using NOVR.VrCamera;
+using NOVR.VrUi.Native;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -44,6 +45,7 @@ public class NOUIManager : NOVRBehaviour
         Create<UIBehaviorPatcher>(transform);
         UIBehaviorPatcher.DoPatching();
         Create<VrUiCursor>(transform);
+        Create<NativeVrUiRoot>(transform);
         ConfigureUiCameras();
     }
 

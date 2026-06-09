@@ -7,13 +7,15 @@ public class UIRenderedCanvasBehavior : MonoBehaviour
 {
     private bool _initialized;
     
+    protected virtual bool ShouldInitializeCanvas => true;
 
     public virtual void Awake() => Initialize();
 
-    public void OnEnable() => Initialize();
+    public virtual void OnEnable() => Initialize();
 
     private void Initialize()
     {
+        if (!ShouldInitializeCanvas) return;
         if (_initialized) return;
         _initialized = true;
         
