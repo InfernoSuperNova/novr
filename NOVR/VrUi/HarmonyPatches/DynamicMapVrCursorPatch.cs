@@ -6,8 +6,11 @@ using System.Collections.Generic;
 
 namespace NOVR.VrUi.HarmonyPatches;
 
+// Harmony patches adapting tactical map interactions, cursor raycasting, selection,
+// and waypoint line/marker formatting to work with the 3D VR laser pointer in cockpit space.
 internal static class DynamicMapVrCursorPatch
 {
+    // Checks if a map icon is valid, active, and eligible for selection.
     private static bool IsSelectableMapIcon(global::MapIcon? mapIcon)
     {
         if (mapIcon == null ||
@@ -32,9 +35,12 @@ internal static class DynamicMapVrCursorPatch
         return true;
     }
 
+    // Patches map item selection to use VR cursor positions and camera space raycasting.
     [HarmonyPatch(typeof(global::DynamicMap), "SelectFromMap")]
     private static class SelectFromMapPatch
     {
+        // Attempts an EventSystem raycast at the VR cursor's screen point,
+        // falling back to clicking the closest icon within a screen distance threshold.
         [HarmonyPrefix]
         private static bool Prefix(global::DynamicMap __instance)
         {
@@ -100,9 +106,11 @@ internal static class DynamicMapVrCursorPatch
         }
     }
 
+    // Patches map boundary checking to project VR cursor onto the map background RectTransform.
     [HarmonyPatch(typeof(global::DynamicMap), "IsCursorInMapRectangle")]
     private static class IsCursorInMapRectanglePatch
     {
+        // Overrides boundary checks using the cockpit HUD camera.
         [HarmonyPrefix]
         private static bool Prefix(global::DynamicMap __instance, ref bool __result)
         {
@@ -124,9 +132,11 @@ internal static class DynamicMapVrCursorPatch
         }
     }
 
+    // Patches coordinates calculations to convert VR pointer position into global 2D simulation coordinates.
     [HarmonyPatch(typeof(global::DynamicMap), "GetCursorCoordinates")]
     private static class GetCursorCoordinatesPatch
     {
+        // Projects the VR screen cursor position onto the map RawImage rectangle to get coordinates.
         [HarmonyPrefix]
         private static bool Prefix(global::DynamicMap __instance, ref global::GlobalPosition __result)
         {
@@ -156,17 +166,119 @@ internal static class DynamicMapVrCursorPatch
         }
     }
 
+    // Patches the MapWaypoint constructor to override the destination position for new waypoints in VR.
     [HarmonyPatch(typeof(global::MapWaypoint), MethodType.Constructor, new Type[] { typeof(Vector3), typeof(Vector3), typeof(GameObject), typeof(GameObject) })]
     private static class MapWaypointConstructorPatch
     {
+        // Projects the VR laser screen coordinates flat onto the map RawImage plane instead of floating in 3D.
         [HarmonyPrefix]
         private static void Prefix(ref Vector3 __0)
         {
             var cursor = VrUiCursor.I;
-            if (cursor != null && cursor.IsActive)
+            var dynamicMap = SceneSingleton<global::DynamicMap>.i;
+            var camera = APIBus.CockpitHudCamera;
+
+            if (cursor != null && dynamicMap != null && camera != null)
             {
-                __0 = cursor.CursorPosition;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    dynamicMap.mapImage.GetComponent<RectTransform>(),
+                    cursor.GetScreenPoint(),
+                    camera,
+                    out var localPoint
+                );
+                __0 = dynamicMap.mapImage.transform.TransformPoint(new Vector3(localPoint.x, localPoint.y, 0f));
             }
+        }
+    }
+
+    // Aligns, scales, and rotates the waypoint marker and connecting line flat on the map canvas.
+    // Handles the scale axis correction (stretching along Y-axis instead of X) and flattens local Z.
+    private static void AlignWaypoint(
+        GameObject marker,
+        GameObject vector,
+        ref Vector3 previousWaypoint,
+        float scale,
+        bool updateRotation)
+    {
+        marker.transform.localScale = Vector3.one * scale;
+        
+        // Flatten the previous waypoint local coordinate relative to the map canvas plane
+        previousWaypoint = new Vector3(previousWaypoint.x, previousWaypoint.y, 0f);
+
+        Vector3 localMarkerPos = marker.transform.localPosition;
+        Vector3 delta = localMarkerPos - previousWaypoint;
+        delta.z = 0f;
+
+        if (updateRotation)
+        {
+            // Calculate the 2D direction angle flat on the rotated canvas plane
+            float angle = -Mathf.Atan2(delta.x, delta.y) * Mathf.Rad2Deg + 180f;
+            vector.transform.localEulerAngles = new Vector3(0f, 0f, angle);
+        }
+
+        // Scale the line vector. Y-axis is length/magnitude, X and Z are width (4f * scale)
+        vector.transform.localScale = new Vector3(4f * scale, delta.magnitude, 4f * scale);
+    }
+
+    // Patches initial marker placement to position waypoints flat on the canvas.
+    [HarmonyPatch(typeof(global::MapWaypoint), "PlaceMarker")]
+    private static class MapWaypointPlaceMarkerPatch
+    {
+        // Intercepts placement to flatten coordinates to the local Z plane and apply VR scale/alignment.
+        [HarmonyPrefix]
+        private static bool Prefix(
+            global::MapWaypoint __instance,
+            ref Vector3 ___waypointPosition,
+            ref Vector3 ___previousWaypoint,
+            ref GameObject ___marker,
+            ref GameObject ___vector)
+        {
+            if (VrUiCursor.I != null)
+            {
+                var dynamicMap = SceneSingleton<global::DynamicMap>.i;
+                if (dynamicMap == null) return true;
+
+                // Flatten waypoint position on the map's iconLayer local plane (Z = 0)
+                var iconLayer = dynamicMap.iconLayer.transform;
+                Vector3 localWaypoint = iconLayer.InverseTransformPoint(___waypointPosition);
+                localWaypoint.z = 0f;
+                Vector3 flatWaypointPosition = iconLayer.TransformPoint(localWaypoint);
+
+                ___waypointPosition = flatWaypointPosition;
+                ___marker.transform.position = flatWaypointPosition;
+                ___vector.transform.position = flatWaypointPosition;
+
+                float scale = 1f / dynamicMap.mapImage.transform.localScale.x;
+                AlignWaypoint(___marker, ___vector, ref ___previousWaypoint, scale, updateRotation: true);
+                return false;
+            }
+            return true;
+        }
+    }
+
+    // Patches marker updates during map zooming or panning in VR.
+    [HarmonyPatch(typeof(global::MapWaypoint), "UpdateMarker")]
+    private static class MapWaypointUpdateMarkerPatch
+    {
+        // Intercepts update to keep the marker and vector scales from warping on map pan/zoom.
+        [HarmonyPrefix]
+        private static bool Prefix(
+            global::MapWaypoint __instance,
+            ref Vector3 ___waypointPosition,
+            ref Vector3 ___previousWaypoint,
+            ref GameObject ___marker,
+            ref GameObject ___vector)
+        {
+            if (VrUiCursor.I != null)
+            {
+                var dynamicMap = SceneSingleton<global::DynamicMap>.i;
+                if (dynamicMap == null || ___marker == null || ___vector == null) return true;
+
+                float scale = 1f / dynamicMap.mapImage.transform.localScale.x;
+                AlignWaypoint(___marker, ___vector, ref ___previousWaypoint, scale, updateRotation: false);
+                return false;
+            }
+            return true;
         }
     }
 }
