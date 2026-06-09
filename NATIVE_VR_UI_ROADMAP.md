@@ -10,7 +10,8 @@ This roadmap breaks the native VR UI work into implementation milestones for one
 - VR controllers are optional, not required.
 - Existing game UI may stay alive when it owns state or side effects.
 - Native VR UI should be introduced incrementally behind an experimental config option.
-- The first shipping target is the non-flight menu stack: main menu, settings, mission selection, multiplayer entry points, mission editor entry points, encyclopedia, workshop, changelog, roadmap, and community links.
+- The first shipping target is the pre-flight menu stack that is most important for headset-plus-mouse play: main menu, settings, single player mission selection, multiplayer browser/hosting, and Workshop browsing.
+- Mission editor, encyclopedia replacement, and in-flight menus are not part of the first native UI delivery. Top-level buttons or external links may still delegate to original game actions where a native replacement is not present.
 - In-flight menus are out of scope for the first native UI delivery. This includes the tactical map, pause/exit menu while flying, and other gameplay overlays.
 - New UI should avoid inherited screen-space Z offsets, clipping masks, and fragile TextMeshPro mask interactions.
 
@@ -91,20 +92,23 @@ Acceptance criteria:
 - Each adapter has a narrow responsibility.
 - Missing game references fail gracefully with useful logs.
 
-## Phase 4: Non-Flight Menu Migration
+## Phase 4: Pre-Flight Menu Migration
 
-Move the pre-flight/main-menu UI stack from patched original UI to native VR panels.
+Move the highest-impact pre-flight/main-menu UI stack from patched original UI to native VR panels.
 
-Candidate order:
+Implemented order for this branch:
 
 1. Main menu submenus.
 2. Settings/options.
 3. Single player mission selection.
 4. Multiplayer entry flow.
-5. Mission editor entry flow.
-6. Encyclopedia.
-7. Workshop.
-8. Changelog, development roadmap, and community links.
+5. Workshop.
+
+Deferred or delegated:
+
+- Mission editor replacement is deferred because it is not a good first-pass VR surface.
+- Encyclopedia replacement is deferred; the top-level action can still delegate to the original game action.
+- Changelog, development roadmap, and community links remain delegated top-level actions.
 
 Deliverables:
 
@@ -114,9 +118,18 @@ Deliverables:
 
 Acceptance criteria:
 
-- Users can complete the non-flight menu flows with headset plus mouse.
+- Users can complete the implemented pre-flight menu flows with headset plus mouse.
 - Text rendering does not depend on disabling ancestor masks.
 - UI layout does not require per-element Z flattening from the original hierarchy.
+
+Current branch status:
+
+- Native main menu shell implemented.
+- Native settings/options implemented, including controls and bindings.
+- Native single player mission picker implemented.
+- Native multiplayer browser, filters, sorting, hosting, and password join flow implemented.
+- Native Workshop browser implemented for missions and aircraft liveries.
+- Mission editor, encyclopedia, tactical map, and in-flight pause/exit menus are out of scope.
 
 ## Phase 5: In-Flight Menu Research
 

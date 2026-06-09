@@ -32,6 +32,7 @@ This PR was created with the help of AI-assisted coding. The implementation was 
 
 - In-flight menus and overlays, including tactical map and exit menu.
 - Mission editor replacement.
+- Native encyclopedia replacement.
 - Native VR controller laser-pointer input.
 - Removing the existing translated UI path.
 
@@ -40,6 +41,8 @@ This PR was created with the help of AI-assisted coding. The implementation was 
 The native UI intentionally keeps the game's original menu objects available. The native panels call through `NativeGameActionAdapter`, which invokes existing buttons or menu actions where possible. This avoids duplicating game state logic while still avoiding the current VR rendering problems caused by screen-space-to-world-space conversion, Z offsets, masks, and TextMeshPro clipping behavior.
 
 Mouse remains the primary input target for this PR because most current users are expected to use a headset with mouse and keyboard.
+
+Top-level actions that do not have a native panel in this PR, such as Encyclopedia and external link buttons, continue to delegate to the game's original actions.
 
 ## Testing
 
