@@ -25,7 +25,25 @@ public class VrCameraManager: MonoBehaviour
         foreach (var camera in cameras)
         {
             var gameObject = camera.gameObject;
-            if (gameObject.name is not (NuclearOptionMainCameraName or NuclearOptionMenuCameraName) || IgnoredCameras.Contains(camera)) continue;
+            if (gameObject.name is not (NuclearOptionMainCameraName or NuclearOptionMenuCameraName))
+            {
+                continue;
+            }
+
+            if (gameObject.name == NuclearOptionMainCameraName)
+            {
+                var existingTrackedCamera = GetTrackedMainCamera(gameObject);
+                if (existingTrackedCamera != null)
+                {
+                    EnsureTrackedMainCameraRig(camera, existingTrackedCamera);
+                    continue;
+                }
+            }
+
+            if (IgnoredCameras.Contains(camera))
+            {
+                continue;
+            }
 
             if (gameObject.name == NuclearOptionMainCameraName)
             {
@@ -53,8 +71,7 @@ public class VrCameraManager: MonoBehaviour
         var existingTrackedCamera = GetTrackedMainCamera(rootCamera.gameObject);
         if (existingTrackedCamera != null)
         {
-            IgnoredCameras.Add(rootCamera);
-            IgnoredCameras.Add(existingTrackedCamera);
+            EnsureTrackedMainCameraRig(rootCamera, existingTrackedCamera);
             return;
         }
 
@@ -89,6 +106,37 @@ public class VrCameraManager: MonoBehaviour
         ReparentTrackedChildren(rootCamera.transform, trackedCameraObject.transform);
 
         trackedCameraObject.AddComponent<VrCamera>();
+
+        IgnoredCameras.Add(rootCamera);
+        IgnoredCameras.Add(trackedCamera);
+    }
+
+    private static void EnsureTrackedMainCameraRig(Camera rootCamera, Camera trackedCamera)
+    {
+        if (rootCamera.enabled)
+        {
+            rootCamera.enabled = false;
+        }
+
+        if (rootCamera.CompareTag("MainCamera"))
+        {
+            rootCamera.tag = "Untagged";
+        }
+
+        if (!trackedCamera.enabled)
+        {
+            trackedCamera.enabled = true;
+        }
+
+        if (!trackedCamera.CompareTag("MainCamera"))
+        {
+            trackedCamera.tag = "MainCamera";
+        }
+
+        if (trackedCamera.GetComponent<VrCamera>() == null)
+        {
+            trackedCamera.gameObject.AddComponent<VrCamera>();
+        }
 
         IgnoredCameras.Add(rootCamera);
         IgnoredCameras.Add(trackedCamera);

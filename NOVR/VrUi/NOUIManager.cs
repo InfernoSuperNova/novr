@@ -94,7 +94,17 @@ public class NOUIManager : NOVRBehaviour
 
     private void OnMainCameraChanged(Camera? previous, Camera? newCam)
     {
-        newCam?.gameObject?.GetComponent<UniversalAdditionalCameraData>()?.cameraStack?.Add(_cockpitHudCamera);
+        if (newCam == null)
+        {
+            return;
+        }
+
+        var cockpitHudCamera = CockpitHudCamera;
+        var cameraStack = newCam.gameObject.GetComponent<UniversalAdditionalCameraData>()?.cameraStack;
+        if (cameraStack != null && !cameraStack.Contains(cockpitHudCamera))
+        {
+            cameraStack.Add(cockpitHudCamera);
+        }
     }
 
     private void ConfigureUiCameras()
