@@ -40,16 +40,15 @@ public class NativeMainMenuShell : MonoBehaviour
         _container = container.gameObject;
 
         CreateImage("Background", container, BackgroundColor, Vector2.zero, container.sizeDelta);
-        CreateText("Game Title", container, "NUCLEAR OPTION", new Vector2(565f, 370f), new Vector2(380f, 54f), 38, TextAnchor.MiddleRight, Color.white);
+        CreateText("Game Title", container, "NUCLEAR OPTION", new Vector2(760f, 470f), new Vector2(440f, 60f), 40, TextAnchor.MiddleRight, Color.white);
 
-        var rail = CreatePanel("Main Menu Rail", container, PanelColor, new Vector2(-675f, 0f), new Vector2(210f, 860f));
-        CreateText("Menu Header", rail, "NOVR", new Vector2(0f, 380f), new Vector2(170f, 34f), 22, TextAnchor.MiddleCenter, Color.white);
+        var rail = CreatePanel("Main Menu Rail", container, PanelColor, new Vector2(-850f, -15f), new Vector2(250f, 950f));
+        CreateText("Menu Header", rail, "NOVR", new Vector2(0f, 420f), new Vector2(210f, 38f), 24, TextAnchor.MiddleCenter, Color.white);
 
         var primaryButtons = new[]
         {
             new MenuAction("SINGLE PLAYER", NativeGameAction.SinglePlayer),
             new MenuAction("MULTIPLAYER", NativeGameAction.Multiplayer),
-            new MenuAction("MISSION EDITOR", NativeGameAction.MissionEditor),
             new MenuAction("SETTINGS", NativeGameAction.Settings),
             new MenuAction("ENCYCLOPEDIA", NativeGameAction.Encyclopedia),
             new MenuAction("WORKSHOP", NativeGameAction.Workshop)
@@ -61,21 +60,23 @@ public class NativeMainMenuShell : MonoBehaviour
             CreateMenuButton(
                 action.Label,
                 rail,
-                new Vector2(0f, 220f - index * 62f),
-                new Vector2(170f, 38f),
+                new Vector2(0f, 290f - index * 68f),
+                new Vector2(205f, 44f),
                 ButtonColor,
-                () => InvokeAction(action.Action));
+                () => InvokeAction(action.Action),
+                16);
         }
 
         CreateMenuButton(
             "EXIT GAME",
             rail,
-            new Vector2(0f, -365f),
-            new Vector2(170f, 38f),
+            new Vector2(0f, -420f),
+            new Vector2(205f, 44f),
             ExitButtonColor,
-            () => _actions?.QuitGame());
+            () => _actions?.QuitGame(),
+            16);
 
-        var linkPanel = CreatePanel("Secondary Links", container, PanelColor, new Vector2(-520f, -335f), new Vector2(230f, 145f));
+        var linkPanel = CreatePanel("Secondary Links", container, PanelColor, new Vector2(-610f, -365f), new Vector2(280f, 165f));
         var secondaryButtons = new[]
         {
             new MenuAction("Change Log", NativeGameAction.ChangeLog),
@@ -90,16 +91,16 @@ public class NativeMainMenuShell : MonoBehaviour
             CreateMenuButton(
                 action.Label,
                 linkPanel,
-                new Vector2(0f, 48f - index * 31f),
-                new Vector2(190f, 24f),
+                new Vector2(0f, 55f - index * 35f),
+                new Vector2(235f, 28f),
                 ButtonColor,
                 () => InvokeAction(action.Action),
                 13);
         }
 
-        var tipPanel = CreatePanel("Menu Tip", container, new Color(0.02f, 0.025f, 0.032f, 0.88f), new Vector2(250f, -350f), new Vector2(520f, 86f));
-        CreateText("Tip Title", tipPanel, "Did you know?", new Vector2(0f, 22f), new Vector2(480f, 24f), 15, TextAnchor.MiddleCenter, Color.white);
-        CreateText("Tip Body", tipPanel, "The SAH-46 Chicane is much better protected against machine gun fire than other aircraft.", new Vector2(0f, -12f), new Vector2(460f, 36f), 14, TextAnchor.MiddleCenter, new Color(0.8f, 0.86f, 0.88f, 1f));
+        var tipPanel = CreatePanel("Menu Tip", container, new Color(0.02f, 0.025f, 0.032f, 0.88f), new Vector2(320f, -430f), new Vector2(650f, 92f));
+        CreateText("Tip Title", tipPanel, "Did you know?", new Vector2(0f, 24f), new Vector2(600f, 24f), 15, TextAnchor.MiddleCenter, Color.white);
+        CreateText("Tip Body", tipPanel, "The SAH-46 Chicane is much better protected against machine gun fire than other aircraft.", new Vector2(0f, -12f), new Vector2(590f, 40f), 14, TextAnchor.MiddleCenter, new Color(0.8f, 0.86f, 0.88f, 1f));
     }
 
     public void SetOriginalMainCanvas(GameObject? sourceMainCanvas)
@@ -177,7 +178,7 @@ public class NativeMainMenuShell : MonoBehaviour
         LayerHelper.SetLayerRecursive(gameObject.transform, LayerHelper.GetVrUiLayer());
 
         var rectTransform = gameObject.AddComponent<RectTransform>();
-        rectTransform.sizeDelta = _containerTransform != null ? _containerTransform.sizeDelta : new Vector2(1600f, 900f);
+        rectTransform.sizeDelta = _containerTransform != null ? _containerTransform.sizeDelta : new Vector2(2000f, 1125f);
         rectTransform.anchoredPosition = Vector2.zero;
         rectTransform.SetAsFirstSibling();
 

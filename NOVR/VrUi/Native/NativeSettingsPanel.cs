@@ -9,7 +9,7 @@ namespace NOVR.VrUi.Native;
 
 public class NativeSettingsPanel : MonoBehaviour
 {
-    private const float RowStartY = 270f;
+    private const float RowStartY = 350f;
     private const float RowSpacing = 42f;
     private const int BindingPageSize = 10;
     private const float BindingCaptureDelaySeconds = 0.25f;
@@ -89,22 +89,22 @@ public class NativeSettingsPanel : MonoBehaviour
     {
         _container = CreateContainer("Native Settings", root, root.sizeDelta);
         CreateImage("Background", _container, BackgroundColor, Vector2.zero, _container.sizeDelta);
-        CreateText("Header", _container, "SETTINGS", new Vector2(0f, 395f), new Vector2(1000f, 34f), 22, TextAnchor.MiddleCenter, Color.white);
+        CreateText("Header", _container, "SETTINGS", new Vector2(0f, 505f), new Vector2(1200f, 34f), 22, TextAnchor.MiddleCenter, Color.white);
 
-        var tabPanel = CreatePanel("Settings Tabs", _container, PanelColor, new Vector2(-610f, 0f), new Vector2(260f, 760f));
-        CreateText("Tab Header", tabPanel, "CATEGORY", new Vector2(0f, 330f), new Vector2(220f, 30f), 17, TextAnchor.MiddleCenter, Color.white);
+        var tabPanel = CreatePanel("Settings Tabs", _container, PanelColor, new Vector2(-770f, -15f), new Vector2(280f, 950f));
+        CreateText("Tab Header", tabPanel, "CATEGORY", new Vector2(0f, 420f), new Vector2(240f, 30f), 17, TextAnchor.MiddleCenter, Color.white);
 
-        AddTabButton(tabPanel, SettingsTab.Audio, "AUDIO", 265f);
-        AddTabButton(tabPanel, SettingsTab.Graphics, "GRAPHICS", 211f);
-        AddTabButton(tabPanel, SettingsTab.Gameplay, "GAMEPLAY", 157f);
-        AddTabButton(tabPanel, SettingsTab.Controls, "CONTROLS", 103f);
-        AddTabButton(tabPanel, SettingsTab.Bindings, "BINDINGS", 49f);
-        AddTabButton(tabPanel, SettingsTab.Hud, "HUD", -5f);
-        AddTabButton(tabPanel, SettingsTab.Chat, "CHAT", -59f);
+        AddTabButton(tabPanel, SettingsTab.Audio, "AUDIO", 345f);
+        AddTabButton(tabPanel, SettingsTab.Graphics, "GRAPHICS", 285f);
+        AddTabButton(tabPanel, SettingsTab.Gameplay, "GAMEPLAY", 225f);
+        AddTabButton(tabPanel, SettingsTab.Controls, "CONTROLS", 165f);
+        AddTabButton(tabPanel, SettingsTab.Bindings, "BINDINGS", 105f);
+        AddTabButton(tabPanel, SettingsTab.Hud, "HUD", 45f);
+        AddTabButton(tabPanel, SettingsTab.Chat, "CHAT", -15f);
 
-        _contentRoot = CreatePanel("Settings Content", _container, PanelColor, new Vector2(150f, 0f), new Vector2(1040f, 760f));
-        CreateMenuButton("BACK", _container, new Vector2(-690f, -405f), new Vector2(170f, 40f), BackButtonColor, BackToMainMenu, 15);
-        CreateMenuButton("APPLY", _container, new Vector2(610f, -405f), new Vector2(170f, 40f), ApplyButtonColor, ApplyAndSave, 15);
+        _contentRoot = CreatePanel("Settings Content", _container, PanelColor, new Vector2(170f, -15f), new Vector2(1440f, 950f));
+        CreateMenuButton("BACK", _container, new Vector2(-860f, -520f), new Vector2(190f, 44f), BackButtonColor, BackToMainMenu, 15);
+        CreateMenuButton("APPLY", _container, new Vector2(860f, -520f), new Vector2(190f, 44f), ApplyButtonColor, ApplyAndSave, 15);
 
         SetActiveTabButtonColors();
         RenderCurrentTab();
@@ -113,7 +113,7 @@ public class NativeSettingsPanel : MonoBehaviour
 
     private void AddTabButton(RectTransform parent, SettingsTab tab, string label, float y)
     {
-        var button = CreateMenuButton(label, parent, new Vector2(0f, y), new Vector2(200f, 38f), ButtonColor, () => SelectTab(tab), 15);
+        var button = CreateMenuButton(label, parent, new Vector2(0f, y), new Vector2(220f, 40f), ButtonColor, () => SelectTab(tab), 15);
         _tabButtons[tab] = button;
     }
 
@@ -195,7 +195,7 @@ public class NativeSettingsPanel : MonoBehaviour
     {
         if (_contentRoot == null) return;
 
-        CreateText($"{title} Title", _contentRoot, title, new Vector2(0f, 330f), new Vector2(960f, 32f), 20, TextAnchor.MiddleCenter, Color.white);
+        CreateText($"{title} Title", _contentRoot, title, new Vector2(0f, 420f), new Vector2(1320f, 32f), 20, TextAnchor.MiddleCenter, Color.white);
     }
 
     private void RenderAudioTab()

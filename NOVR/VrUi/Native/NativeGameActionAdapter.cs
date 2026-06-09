@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using System.Text;
 using System;
+using NuclearOption.SavedMission;
+using NuclearOption.Networking.Lobbies;
+using NuclearOption.Workshop;
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,6 +15,7 @@ public class NativeGameActionAdapter
 {
     private const string TopLevelMainMenuPathFragment = "Prejoin menu/LeftPanel/Container/MenuButtonsPanel";
     private const int MaxButtonsToDescribe = 20;
+    private static readonly BindingFlags PrivateInstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
 
     private readonly Dictionary<NativeGameAction, string[]> _mainMenuActionLabels = new()
     {
@@ -42,7 +47,7 @@ public class NativeGameActionAdapter
             return;
         }
 
-        Debug.Log($"[NOVR] Native UI action adapter bound to original MainCanvas with {GetButtons().Length} buttons.");
+        Debug.Log($"[NOVR] Native UI action adapter bound to original MainCanvas with {GetButtons(includeInactive: true).Length} buttons.");
     }
 
     public bool TryInvoke(NativeGameAction action)
@@ -65,7 +70,7 @@ public class NativeGameActionAdapter
             return false;
         }
 
-        var buttons = GetButtons();
+        var buttons = GetButtons(includeInactive: false);
         for (var index = 0; index < buttons.Length; index++)
         {
             var button = buttons[index];
@@ -88,7 +93,7 @@ public class NativeGameActionAdapter
             if (_originalMainCanvas == null) return false;
             if (!_mainMenuActionLabels.TryGetValue(NativeGameAction.SinglePlayer, out var singlePlayerLabels)) return false;
 
-            var buttons = GetButtons();
+            var buttons = GetButtons(includeInactive: false);
             for (var index = 0; index < buttons.Length; index++)
             {
                 if (IsTopLevelMainMenuButton(buttons[index]) && ButtonMatches(buttons[index], singlePlayerLabels))
@@ -115,7 +120,7 @@ public class NativeGameActionAdapter
             return false;
         }
 
-        var buttons = GetButtons();
+        var buttons = GetButtons(includeInactive: false);
         for (var index = 0; index < buttons.Length; index++)
         {
             var button = buttons[index];
@@ -153,11 +158,165 @@ public class NativeGameActionAdapter
         return false;
     }
 
-    private Button[] GetButtons()
+    public bool TryCloseWorkshopMenu()
+    {
+        if (_originalMainCanvas == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI workshop close ignored because the original MainCanvas is not available.");
+            return false;
+        }
+
+        var workshopMenus = _originalMainCanvas.GetComponentsInChildren<WorkshopMenu>(true);
+        for (var index = 0; index < workshopMenus.Length; index++)
+        {
+            var workshopMenu = workshopMenus[index];
+            if (!workshopMenu.gameObject.activeInHierarchy) continue;
+
+            Debug.Log($"[NOVR] Native UI closing original workshop menu '{GetGameObjectPath(workshopMenu.gameObject)}'.");
+            workshopMenu.CloseMenu();
+            return true;
+        }
+
+        Debug.LogWarning("[NOVR] Native UI could not find an active original workshop menu to close.");
+        return false;
+    }
+
+    public bool TrySelectOriginalMission(MissionKey missionKey)
+    {
+        if (_originalMainCanvas == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI mission selection ignored because the original MainCanvas is not available.");
+            return false;
+        }
+
+        var pickers = _originalMainCanvas.GetComponentsInChildren<global::MissionsPicker>(true);
+        for (var index = 0; index < pickers.Length; index++)
+        {
+            var picker = pickers[index];
+            if (!picker.gameObject.activeInHierarchy) continue;
+
+            picker.SelectMission(missionKey);
+            return true;
+        }
+
+        Debug.LogWarning("[NOVR] Native UI could not find an active original mission picker to synchronize mission selection.");
+        return false;
+    }
+
+    public bool TryGetActiveLobbyList(out LobbyList? lobbyList)
+    {
+        lobbyList = null;
+        if (_originalMainCanvas == null)
+        {
+            return false;
+        }
+
+        var lobbyLists = _originalMainCanvas.GetComponentsInChildren<LobbyList>(true);
+        for (var index = 0; index < lobbyLists.Length; index++)
+        {
+            var candidate = lobbyLists[index];
+            if (!candidate.gameObject.activeInHierarchy) continue;
+
+            lobbyList = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryRefreshMultiplayerLobbies()
+    {
+        if (!TryGetActiveLobbyList(out var lobbyList) || lobbyList == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI multiplayer refresh ignored because the original lobby list is not active.");
+            return false;
+        }
+
+        lobbyList.GetListOfLobbies();
+        return true;
+    }
+
+    public bool TryOpenCreateLobby()
+    {
+        if (!TryGetActiveLobbyList(out var lobbyList) || lobbyList == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI create lobby ignored because the original lobby list is not active.");
+            return false;
+        }
+
+        var method = typeof(LobbyList).GetMethod("CreateLobbyClicked", PrivateInstanceFlags);
+        if (method == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI could not find LobbyList.CreateLobbyClicked.");
+            return false;
+        }
+
+        method.Invoke(lobbyList, null);
+        return true;
+    }
+
+    public bool TryJoinLobby(LobbyInstance lobby)
+    {
+        return TryJoinLobby(lobby, null, promptIfPasswordNeeded: true);
+    }
+
+    public bool TryJoinLobby(LobbyInstance lobby, string? password, bool promptIfPasswordNeeded)
+    {
+        if (SteamLobby.instance == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI join lobby ignored because SteamLobby is not available.");
+            return false;
+        }
+
+        SteamLobby.instance.TryJoinLobby(lobby, password, promptIfPasswordNeeded);
+        return true;
+    }
+
+    public int GetTooManyPlayerLimit()
+    {
+        return TryGetActiveLobbyList(out var lobbyList) && lobbyList != null
+            ? lobbyList.TooManyPlayerLimit
+            : 16;
+    }
+
+    public bool TryJoinLobbyThroughOriginalPopup(LobbyInstance lobby)
+    {
+        if (!TryGetActiveLobbyList(out var lobbyList) || lobbyList == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI join lobby ignored because the original lobby list is not active.");
+            return false;
+        }
+
+        lobbyList.ShowLobbyPopup(lobby);
+        var lobbyPopup = GetPrivateField<LobbyDetailsModal>(lobbyList, "lobbyPopup");
+        if (lobbyPopup == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI could not find LobbyList.lobbyPopup.");
+            return false;
+        }
+
+        var joinMethod = typeof(LobbyDetailsModal).GetMethod("Join", PrivateInstanceFlags);
+        if (joinMethod == null)
+        {
+            Debug.LogWarning("[NOVR] Native UI could not find LobbyDetailsModal.Join.");
+            return false;
+        }
+
+        joinMethod.Invoke(lobbyPopup, null);
+        return true;
+    }
+
+    private Button[] GetButtons(bool includeInactive)
     {
         return _originalMainCanvas != null
-            ? _originalMainCanvas.GetComponentsInChildren<Button>(true)
+            ? _originalMainCanvas.GetComponentsInChildren<Button>(includeInactive)
             : new Button[0];
+    }
+
+    private static T? GetPrivateField<T>(object instance, string fieldName)
+        where T : class
+    {
+        return instance.GetType().GetField(fieldName, PrivateInstanceFlags)?.GetValue(instance) as T;
     }
 
     private static bool ButtonMatches(Button button, IEnumerable<string> candidateLabels)
