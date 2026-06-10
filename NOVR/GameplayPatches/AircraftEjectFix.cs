@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using HarmonyLib;
 using NaturalPoint.TrackIR;
 using NOVR.VrUi.HarmonyPatches;
@@ -14,24 +15,44 @@ internal static class AircraftEjectFix
         [HarmonyPostfix]
         private static void Postfix(PilotDismounted __instance)
         {
-            try
-            {
-                if (!UnitRegistry.TryGetUnit<Aircraft>(__instance.parentUnit, out var unit)) return;
-                if (unit != SceneSingleton<CameraStateManager>.i.followingUnit ||
-                    __instance.pilotNumber != (byte)0) return;
-                var head = __instance.transform.Find("pilot/pilot_armature/pelvis/chest/neck/head");
-                var helmetCamPoint = head?.Find("helmet_cam_point");
-                if (helmetCamPoint == null) throw new Exception("helmetCamPoint is null");
-                SceneSingleton<CameraStateManager>.i.SetCameraPosition(new GlobalPosition(helmetCamPoint.transform.position), Quaternion.identity);
-                head?.gameObject.SetActive(false);
-                
-                LayerHelper.SetLayerRecursive(__instance.transform, LayerHelper.Layers.CockpitAndExternal);
-            }
-            catch (Exception e)
-            {
-                Debug.Log(e);
-            }
+            if (!UnitRegistry.TryGetUnit<Aircraft>(__instance.parentUnit, out var unit)) return;
+            if (unit != SceneSingleton<CameraStateManager>.i.followingUnit ||
+                __instance.pilotNumber != (byte)0) return;
+            __instance.StartCoroutine(ApplyCameraPivot(__instance));
+        }
 
+        private static IEnumerator ApplyCameraPivot(PilotDismounted pilotDismounted)
+        { 
+            while (true)
+            {
+                bool shouldContinue = false;
+                try
+                {
+                    if (pilotDismounted == null) yield break;
+                
+
+                    var head = pilotDismounted.transform.Find("pilot/pilot_armature/pelvis/chest/neck/head");
+                    if (head == null) throw new Exception("head is null");
+                    var helmetCamPoint = head?.Find("helmetCamPoint");
+                    if (helmetCamPoint == null) throw new Exception("helmetCamPoint is null");
+
+                    var cameraPivot = pilotDismounted.transform.Find("cameraPivot");
+                    if (cameraPivot == null) throw new Exception("cameraPivot is null");
+
+                    cameraPivot.SetPositionAndRotation(helmetCamPoint.position, helmetCamPoint.rotation);
+                    head.gameObject.SetActive(false);
+                    //LayerHelper.SetLayerRecursive(pilotDismounted.transform, LayerHelper.Layers.CockpitAndExternal); // TODO: Fix this
+                }
+                catch (Exception e)
+                {
+                    Debug.Log($"Aircraft ejection: {e}");
+                    shouldContinue = true;
+                }
+
+                if (!shouldContinue) yield break;
+                yield return null;
+            }
+            
         }
     }
 }
