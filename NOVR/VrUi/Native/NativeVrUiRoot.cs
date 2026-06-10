@@ -347,8 +347,10 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     private void RecenterMenuImmediately()
     {
-        CaptureMenuAnchor();
-        UpdatePlacement(true);
+        // CaptureMenuAnchor();
+        // UpdatePlacement(true);
+        NOVRHeadsetData.CalibrateTranslation();
+        NOVRHeadsetData.CalibrateRotation();
         _recenterPending = false;
         UpdateRecenterButtonText();
         Debug.Log("[NOVR] Native VR UI recentered.");

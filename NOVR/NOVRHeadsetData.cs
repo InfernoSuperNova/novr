@@ -47,13 +47,19 @@ public class NOVRHeadsetData : NOVRBehaviour
 
     public static void CalibrateRotation(CalibrationAxes calibrationAxes = CalibrationAxes.Yaw, bool overrideExistingInNonCalibratedAxes = false)
     {
-        Quaternion currentError = Quaternion.Inverse((Quaternion)_trackingRotationMethod.Invoke(null, TrackingMethodArgs));
-        
+        var currentRotation = (Quaternion)_trackingRotationMethod.Invoke(null, TrackingMethodArgs);
+        var currentEuler = currentRotation.eulerAngles;
+        Vector3 currentError = new(
+            -Mathf.DeltaAngle(0f, currentEuler.x),
+            -Mathf.DeltaAngle(0f, currentEuler.y),
+            -Mathf.DeltaAngle(0f, currentEuler.z)
+        );
+
         bool ov  = overrideExistingInNonCalibratedAxes;
         RotationCalibrationOffset = Quaternion.Euler(
-            (calibrationAxes & CalibrationAxes.X) != 0 ? currentError.x : ov ? RotationCalibrationOffset.x : 0,
-            (calibrationAxes & CalibrationAxes.Y) != 0 ? currentError.y : ov ? RotationCalibrationOffset.y : 0,
-            (calibrationAxes & CalibrationAxes.Z) != 0 ? currentError.z : ov ? RotationCalibrationOffset.z : 0
+            (calibrationAxes & CalibrationAxes.X) != 0 ? currentError.x : ov ? RotationCalibrationOffset.eulerAngles.x : 0,
+            (calibrationAxes & CalibrationAxes.Y) != 0 ? currentError.y : ov ? RotationCalibrationOffset.eulerAngles.y : 0,
+            (calibrationAxes & CalibrationAxes.Z) != 0 ? currentError.z : ov ? RotationCalibrationOffset.eulerAngles.z : 0
         );
     }
     
