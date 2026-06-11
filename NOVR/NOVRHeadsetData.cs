@@ -14,7 +14,7 @@ public class NOVRHeadsetData : NOVRBehaviour
     private static MethodInfo? _trackingRotationMethod;
     private static MethodInfo? _trackingPositionMethod;
     private static readonly object[] TrackingMethodArgs = {
-        2 // Enum value for XRNode.CenterEye
+        1
     };
     public static Vector3 TranslationAnchor { get; private set; }
     public static Vector3 Translation { get; private set; }
