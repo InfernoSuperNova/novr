@@ -58,7 +58,6 @@ public class NativeVrUiRoot : NOVRBehaviour
     private float _nextMainMenuScanTime;
     private float _pendingRecenterTime;
     private bool _recenterPending;
-    private bool _menuAnchorInitialized;
     private float _lastNativeUiVisibleTime = -100f;
     private Vector3 _menuAnchorPosition;
     private Quaternion _menuAnchorRotation = Quaternion.identity;
@@ -86,7 +85,6 @@ public class NativeVrUiRoot : NOVRBehaviour
             {
                 _root.SetActive(false);
             }
-            _menuAnchorInitialized = false;
             ClearNativeCursorProjectionReference();
             SetUtilityWidgetMode(ShouldShowStockNativeUiToggle()
                 ? UtilityWidgetMode.EnableNativeUi
@@ -189,7 +187,6 @@ public class NativeVrUiRoot : NOVRBehaviour
         {
             _root.SetActive(false);
         }
-        _menuAnchorInitialized = false;
         ClearNativeCursorProjectionReference();
         SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
     }
@@ -257,51 +254,21 @@ public class NativeVrUiRoot : NOVRBehaviour
         {
             ClearNativeCursorProjectionReference();
             SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
-            if (_menuAnchorInitialized && Time.unscaledTime - _lastNativeUiVisibleTime > AnchorResetAfterHiddenSeconds)
-            {
-                _menuAnchorInitialized = false;
-            }
             return;
         }
 
         _lastNativeUiVisibleTime = Time.unscaledTime;
         SetUtilityWidgetMode(UtilityWidgetMode.Recenter);
-
-        if (!_menuAnchorInitialized)
-        {
-            CaptureMenuAnchor();
-        }
+        
 
         _root.transform.SetParent(null, true);
         ApplyMenuAnchor(menuDistance, menuHeightOffset);
         ApplyNativeCursorProjectionReference();
     }
 
-    private void CaptureMenuAnchor()
-    {
-        var reference = APIBus.CockpitHudReference.transform;
-        var forward = Vector3.ProjectOnPlane(reference.forward, Vector3.up);
-        if (forward.sqrMagnitude < 0.0001f)
-        {
-            forward = _menuAnchorInitialized
-                ? _menuAnchorRotation * Vector3.forward
-                : Vector3.ProjectOnPlane(_root != null ? _root.transform.forward : Vector3.forward, Vector3.up);
-        }
-        if (forward.sqrMagnitude < 0.0001f)
-        {
-            forward = Vector3.forward;
-        }
-
-        forward.Normalize();
-
-        _menuAnchorPosition = reference.position;
-        _menuAnchorRotation = Quaternion.LookRotation(forward, Vector3.up);
-        _menuAnchorInitialized = true;
-    }
-
     private void ApplyMenuAnchor(float menuDistance, float menuHeightOffset)
     {
-        if (_root == null || !_menuAnchorInitialized) return;
+        if (_root == null) return;
 
         var position = _menuAnchorPosition + (_menuAnchorRotation * Vector3.forward) * menuDistance + Vector3.up * menuHeightOffset;
         var minimumHeight = _menuAnchorPosition.y + MinimumMenuCenterHeightBelowHeadMeters;
@@ -316,8 +283,6 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     private void ApplyNativeCursorProjectionReference()
     {
-        if (!_menuAnchorInitialized) return;
-
         VrUiCursor.I?.SetProjectionReferenceRotation(_menuAnchorRotation);
     }
 
@@ -493,7 +458,6 @@ public class NativeVrUiRoot : NOVRBehaviour
         var config = ModConfiguration.Instance;
         config.EnableNativeMenuUi.Value = true;
         config.Config.Save();
-        _menuAnchorInitialized = false;
         SetNativeMenuRequestFromCurrentStockMenu();
         SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
         Debug.Log("[NOVR] Native VR UI enabled from stock menu fallback button.");
