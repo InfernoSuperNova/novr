@@ -16,6 +16,7 @@ public class ModConfiguration
     public readonly ConfigEntry<float> NativeMenuDistance;
     public readonly ConfigEntry<float> NativeMenuHeightOffset;
     public readonly ConfigEntry<bool> EnableNativeMenuEnvironment;
+    public readonly ConfigEntry<float> CockpitHeadForwardOffset;
 
     public ModConfiguration(ConfigFile config)
     {
@@ -57,5 +58,11 @@ public class ModConfiguration
             "Enable Native Menu Environment",
             false,
             "Show an experimental 3D native menu environment using real game preview assets.");
+
+        CockpitHeadForwardOffset = config.Bind(
+            "Experimental",
+            "Cockpit Head Forward Offset",
+            0.05f,
+            "Offset in meters applied to the cockpit head forward vector. Helps keep the ejection seat bars out of your face.");
     }
 }

@@ -2,11 +2,11 @@ using HarmonyLib;
 
 namespace NOVR.VrCamera;
 
-[HarmonyPatch(typeof(global::CameraStateManager), "OnEnable")]
+[HarmonyPatch(typeof(CameraStateManager), "OnEnable")]
 internal static class CameraStateManagerMainCameraPatch
 {
     [HarmonyPostfix]
-    private static void Postfix(global::CameraStateManager __instance)
+    private static void Postfix(CameraStateManager __instance)
     {
         var trackedMainCamera = VrCameraManager.GetTrackedMainCamera(__instance.gameObject);
         if (trackedMainCamera != null)

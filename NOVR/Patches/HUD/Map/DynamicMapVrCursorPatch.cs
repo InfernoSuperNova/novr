@@ -1,10 +1,11 @@
-using HarmonyLib;
-using UnityEngine;
-using UnityEngine.EventSystems;
 using System;
 using System.Collections.Generic;
+using HarmonyLib;
+using NOVR.VrUi;
+using UnityEngine;
+using UnityEngine.EventSystems;
 
-namespace NOVR.VrUi.HarmonyPatches;
+namespace NOVR.Patches.HUD.Map;
 
 // Harmony patches adapting tactical map interactions, cursor raycasting, selection,
 // and waypoint line/marker formatting to work with the 3D VR laser pointer in cockpit space.

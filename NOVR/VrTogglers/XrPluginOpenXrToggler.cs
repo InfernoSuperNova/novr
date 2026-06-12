@@ -1,5 +1,4 @@
-﻿
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.XR.Management;
 using UnityEngine.XR.OpenXR;
 

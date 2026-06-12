@@ -1,11 +1,13 @@
-using HarmonyLib;
 using System.Reflection;
+using HarmonyLib;
+using NOVR.PatchHelper;
+using NOVR.VrUi.HarmonyPatches;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace NOVR.VrUi.HarmonyPatches;
+namespace NOVR.Patches.HUD;
 
-internal static class AirbaseOverlayViewPositionPatch
+internal static class AirbaseOverlayPatch
 {
     private static readonly FieldInfo AirbaseMarkerField = AccessTools.Field(typeof(global::AirbaseOverlay), "airbaseMarker");
     private static readonly FieldInfo AirbaseLabelField = AccessTools.Field(typeof(global::AirbaseOverlay), "airbaseLabel");
@@ -18,27 +20,23 @@ internal static class AirbaseOverlayViewPositionPatch
     private static readonly FieldInfo GlideslopeField = AccessTools.Field(typeof(global::AirbaseOverlay), "glideslope");
     private static readonly FieldInfo GlideslopeAimPointField = AccessTools.Field(typeof(global::AirbaseOverlay), "glideslopeAimPoint");
 
-    [HarmonyPatch(typeof(global::AirbaseOverlay), "LateUpdate")]
-    private static class LateUpdatePatch
+    [PatchPostfix(typeof(AirbaseOverlay), "LateUpdate")]
+    private static void LateUpdate(AirbaseOverlay __instance)
     {
-        [HarmonyPostfix]
-        private static void Postfix(global::AirbaseOverlay __instance)
-        {
-            var aircraft = SceneSingleton<CombatHUD>.i.aircraft;
-            var mainCamera = APIBus.MainCamera;
-            var cockpitHudCamera = APIBus.CockpitHudCamera;
-            if (aircraft == null || mainCamera == null || cockpitHudCamera == null)
-                return;
+        var aircraft = SceneSingleton<CombatHUD>.i.aircraft;
+        var mainCamera = APIBus.MainCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        if (aircraft == null || mainCamera == null || cockpitHudCamera == null)
+            return;
 
-            __instance.transform.rotation = cockpitHudCamera.transform.rotation;
+        __instance.transform.rotation = cockpitHudCamera.transform.rotation;
             
-            UpdateAirbaseMarker(__instance, aircraft);
-            UpdateRunwayBorders(__instance);
-            UpdateGlideslope(__instance, aircraft);
-        }
+        UpdateAirbaseMarker(__instance, aircraft);
+        UpdateRunwayBorders(__instance);
+        UpdateGlideslope(__instance, aircraft);
     }
 
-    private static void UpdateAirbaseMarker(global::AirbaseOverlay overlay, Aircraft aircraft)
+    private static void UpdateAirbaseMarker(AirbaseOverlay overlay, Aircraft aircraft)
     {
         var airbaseMarker = (Image)AirbaseMarkerField.GetValue(overlay);
         var airbaseLabel = (Text)AirbaseLabelField.GetValue(overlay);
@@ -63,7 +61,7 @@ internal static class AirbaseOverlayViewPositionPatch
             markerWorldPosition = runwayUsage.Value.GetEnd().position;
         }
 
-        if (VrHudProjection.PinToScreenEdge(markerWorldPosition, out var markerHudPosition))
+        if (VrHudProjectionHelper.PinToScreenEdge(markerWorldPosition, out var markerHudPosition))
         {
             airbaseMarker.transform.position = markerHudPosition;
             airbaseLabel.transform.position = markerHudPosition - markerHudPosition.normalized * 50.0f;
@@ -107,7 +105,7 @@ internal static class AirbaseOverlayViewPositionPatch
         var hudCorners = new Vector3[4];
         for (var i = 0; i < corners.Length; i++)
         {
-            if (!VrHudProjection.TryProjectToCockpitHud(corners[i], out hudCorners[i]))
+            if (!VrHudProjectionHelper.TryProjectToCockpitHud(corners[i], out hudCorners[i]))
             {
                 SetRunwayBordersEnabled(runwayBorders, false);
                 return;
@@ -119,7 +117,7 @@ internal static class AirbaseOverlayViewPositionPatch
         {
             var nextIndex = (i + 1) % 4;
             if (runwayBorders[i] != null)
-                VrHudProjection.SetVerticalLine(runwayBorders[i].transform, hudCorners[i], hudCorners[nextIndex], cockpitHudCamera);
+                VrHudProjectionHelper.SetVerticalLine(runwayBorders[i].transform, hudCorners[i], hudCorners[nextIndex], cockpitHudCamera);
         }
     }
 
@@ -144,15 +142,15 @@ internal static class AirbaseOverlayViewPositionPatch
             runwayUsage.Value.Reverse,
             timeToRunwayEnd * 0.9f);
 
-        if (!VrHudProjection.TryProjectToCockpitHud(runwayEndPosition, out var runwayEndHudPosition) ||
-            !VrHudProjection.TryProjectToCockpitHud(aimPointWorldPosition, out var aimPointHudPosition))
+        if (!VrHudProjectionHelper.TryProjectToCockpitHud(runwayEndPosition, out var runwayEndHudPosition) ||
+            !VrHudProjectionHelper.TryProjectToCockpitHud(aimPointWorldPosition, out var aimPointHudPosition))
         {
             glideslope.enabled = false;
             glideslopeAimPoint.enabled = false;
             return;
         }
 
-        VrHudProjection.SetVerticalLine(glideslope.transform, runwayEndHudPosition, aimPointHudPosition, cockpitHudCamera, -8.0f);
+        VrHudProjectionHelper.SetVerticalLine(glideslope.transform, runwayEndHudPosition, aimPointHudPosition, cockpitHudCamera, -8.0f);
         glideslopeAimPoint.transform.position = aimPointHudPosition;
         glideslopeAimPoint.transform.rotation = cockpitHudCamera.transform.rotation;
     }

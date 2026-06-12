@@ -1,9 +1,9 @@
-using HarmonyLib;
 using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace NOVR.VrUi.HarmonyPatches;
+namespace NOVR.Patches.HUD.Map;
 
 internal static class DynamicMapRotationSafePatch
 {
