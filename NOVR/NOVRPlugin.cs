@@ -2,6 +2,7 @@
 using System.Reflection;
 using BepInEx;
 using HarmonyLib;
+using NOVR.PatchHelper;
 using NOVR.VrCamera;
 using NOVR.VrUi;
 using NOVR.VrUi.SpecialBehavior;
@@ -33,7 +34,8 @@ public class NOVRPlugin : BaseUnityPlugin
         ModFolderPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(NOVRPlugin)).Location);
         
         new ModConfiguration(Config);
-        Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
+        var harm = Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
+        PatchLoader.Apply(harm);
         Core.Create();
     }
 
