@@ -65,7 +65,7 @@ internal static class ThreatItemPatch
         var aircraft = SceneSingleton<CombatHUD>.i.aircraft;
         var worldPosition = aircraft.GlobalPosition().ToLocalPosition() + notchDirection * NotchIndicatorDistance;
         var mainCamera = APIBus.MainCamera;
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         var mainCameraLocal = mainCamera.transform.InverseTransformPoint(worldPosition);
         var hudWorldPosition = cockpitHudCamera.transform.TransformPoint(mainCameraLocal);
         var mainCameraLocalNotchDirection = mainCamera.transform.InverseTransformDirection(notchDirection);

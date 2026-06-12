@@ -31,7 +31,7 @@ internal static class FlightHudPatch
             return;
 
         var mainCamera = APIBus.MainCamera;
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (mainCamera == null || cockpitHudCamera == null)
             return;
 

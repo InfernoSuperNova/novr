@@ -1,3 +1,5 @@
+using System;
+using NOVR.HUD;
 using UnityEngine;
 
 namespace NOVR.VrUi.SpecialBehavior;
@@ -5,20 +7,26 @@ namespace NOVR.VrUi.SpecialBehavior;
 public class NOVRHMDBehavior : UIRenderedCanvasBehavior
 {
     
-    
     private float _offset = 1000;
-
-    private void Update()
+    
+    
+    private void Start()
     {
-        var uiCam = APIBus.CockpitHudReference;
-        transform.position = uiCam.transform.forward * _offset;
-        transform.rotation = uiCam.transform.rotation;
+        var hmdHudArmature = SceneSingleton<SmoothedHMDHudArmature>.i;
+        transform.SetParent(hmdHudArmature.transform, false);
+        transform.localPosition = Vector3.forward * _offset;
+        transform.localRotation = Quaternion.identity;
+        
         
         SetLocalPosition("Speed", new Vector3(-110f, 150f, 0f)); // TODO: Patch game files and use events to set these gameobjects
         SetLocalPosition("Altitude", new Vector3(110f, 150f, 0f));
         SetLocalPosition("Bearing", new Vector3(0f, 200f, 0f));
         SetLocalPosition("Artificial Horizon", new Vector3(0f, 150f, 0f));
     }
+
+
+    
+    
 
     private void SetLocalPosition(string childName, Vector3 localPosition)
     {
@@ -30,23 +38,7 @@ public class NOVRHMDBehavior : UIRenderedCanvasBehavior
 
         child.localPosition = localPosition;
     }
-
-    private void SetLocalPositionRotationAndScale(
-        string childName,
-        Vector3 localPosition,
-        Vector3 localEulerAngles,
-        Vector3 localScale)
-    {
-        var child = FindChildRecursive(transform, childName);
-        if (child == null)
-        {
-            return;
-        }
-
-        child.localPosition = localPosition;
-        child.localEulerAngles = localEulerAngles;
-        child.localScale = localScale;
-    }
+    
 
     private static Transform FindChildRecursive(Transform parent, string childName)
     {

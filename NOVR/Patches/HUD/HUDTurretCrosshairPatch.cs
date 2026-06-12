@@ -23,7 +23,7 @@ internal static class HUDTurretCrosshairPatch
         
 
         var crosshairDirection = APIBus.MainCamera.transform.InverseTransformDirection(direction);
-        crosshairDirection = APIBus.CockpitHudCamera.transform.TransformDirection(crosshairDirection);
+        crosshairDirection = APIBus.MainCamera.transform.TransformDirection(crosshairDirection);
         
         crosshairPosition = crosshairDirection * 1000f;
         crosshair.gameObject.transform.position = crosshairPosition;

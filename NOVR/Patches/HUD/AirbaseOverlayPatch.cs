@@ -25,7 +25,7 @@ internal static class AirbaseOverlayPatch
     {
         var aircraft = SceneSingleton<CombatHUD>.i.aircraft;
         var mainCamera = APIBus.MainCamera;
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (aircraft == null || mainCamera == null || cockpitHudCamera == null)
             return;
 
@@ -45,7 +45,7 @@ internal static class AirbaseOverlayPatch
         var landing = (bool)LandingField.GetValue(overlay);
         var taxiingToRunway = (bool)TaxiingToRunwayField.GetValue(overlay);
         var reachedRunway = (bool)ReachedRunwayField.GetValue(overlay);
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (airbaseMarker == null || airbaseLabel == null || nearestAirbase == null || cockpitHudCamera == null || !airbaseMarker.enabled)
             return;
 
@@ -83,7 +83,7 @@ internal static class AirbaseOverlayPatch
         var runwayUsage = GetRunwayUsage(overlay);
         var landing = (bool)LandingField.GetValue(overlay);
         var runwayBorders = (Image[])RunwayBordersField.GetValue(overlay);
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (!landing || !runwayUsage.HasValue || runwayBorders == null || runwayBorders.Length < 4 || cockpitHudCamera == null)
             return;
 
@@ -126,7 +126,7 @@ internal static class AirbaseOverlayPatch
         var runwayUsage = GetRunwayUsage(overlay);
         var glideslope = (Image)GlideslopeField.GetValue(overlay);
         var glideslopeAimPoint = (Image)GlideslopeAimPointField.GetValue(overlay);
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (!runwayUsage.HasValue || runwayUsage.Value.Runway == null || glideslope == null || glideslopeAimPoint == null ||
             cockpitHudCamera == null || !glideslope.enabled)
             return;

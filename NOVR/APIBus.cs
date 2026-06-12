@@ -8,8 +8,8 @@ public class APIBus : MonoBehaviour
 {
     #region API Properties
     public static Camera MainCamera => _previousMainCamera;
-    public static Camera CockpitHudCamera => NOUIManager.I.CockpitHudCamera;
-    public static GameObject CockpitHudReference => NOUIManager.I.CockpitHudReference;
+    //public static Camera CockpitHudCamera => NOUIManager.I.CockpitHudCamera;
+    //public static GameObject CockpitHudReference => NOUIManager.I.CockpitHudReference;
     public static double AngleFromZero;
     //public static Vector3 TrackingCalibrationOffset => NOVRPoseDriver.TranslationCalibrationOffset;
     #endregion

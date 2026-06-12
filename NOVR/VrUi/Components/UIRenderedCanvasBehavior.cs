@@ -19,16 +19,11 @@ public class UIRenderedCanvasBehavior : MonoBehaviour
         _initialized = true;
         
         
-        ApplyVrUiLayerRecursive(transform);
         transform.localPosition = transform.localPosition with { z = 0 };
         var canvas = gameObject.GetComponent<Canvas>();
         if (canvas == null) return;
         
-        
         canvas.renderMode = RenderMode.WorldSpace;
-        Debug.Log($"{GetType().Name}: Set canvas render mode of {canvas.gameObject.name}. Is currently:  {canvas.renderMode}");
-        canvas.worldCamera = APIBus.CockpitHudCamera;
-        Debug.Log($"{GetType().Name}: Set canvas world camera of {canvas.gameObject.name}. Is currently:  {canvas.worldCamera}");
         canvas.planeDistance = 1f;
     }
     

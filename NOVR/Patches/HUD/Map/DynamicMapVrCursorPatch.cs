@@ -48,7 +48,7 @@ internal static class DynamicMapVrCursorPatch
             var cursor = VrUiCursor.I;
             if (cursor != null && cursor.IsActive)
             {
-                var camera = APIBus.CockpitHudCamera;
+                var camera = APIBus.MainCamera;
                 if (camera == null) return true;
 
                 // Calculate screen point exactly in the VR camera's screen/viewport space
@@ -118,7 +118,7 @@ internal static class DynamicMapVrCursorPatch
             var cursor = VrUiCursor.I;
             if (cursor != null && cursor.IsActive)
             {
-                var camera = APIBus.CockpitHudCamera;
+                var camera = APIBus.MainCamera;
                 if (camera == null) return true;
 
                 var screenPoint = cursor.GetScreenPoint();
@@ -144,7 +144,7 @@ internal static class DynamicMapVrCursorPatch
             var cursor = VrUiCursor.I;
             if (cursor != null && cursor.IsActive)
             {
-                var camera = APIBus.CockpitHudCamera;
+                var camera = APIBus.MainCamera;
                 if (camera == null) return true;
 
                 var screenPoint = cursor.GetScreenPoint();
@@ -177,7 +177,7 @@ internal static class DynamicMapVrCursorPatch
         {
             var cursor = VrUiCursor.I;
             var dynamicMap = SceneSingleton<global::DynamicMap>.i;
-            var camera = APIBus.CockpitHudCamera;
+            var camera = APIBus.MainCamera;
 
             if (cursor != null && dynamicMap != null && camera != null)
             {

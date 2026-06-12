@@ -23,7 +23,7 @@ internal static class HUDBoresightStatePatch
     private static void UpdateWeaponDisplay(HUDBoresightState __instance, Aircraft aircraft, List<Unit> targetList)
     {
         var mainCamera = APIBus.MainCamera;
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (mainCamera == null || cockpitHudCamera == null || aircraft == null)
             return;
 
@@ -83,7 +83,7 @@ internal static class HUDBoresightStatePatch
         var targetPosition = (Image)TargetPositionField.GetValue(state);
         var projectedPosition = (Image)ProjectedPositionField.GetValue(state);
         var line = (Image)LineField.GetValue(state);
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (boresight == null || targetPosition == null || projectedPosition == null || line == null || cockpitHudCamera == null)
             return;
 
@@ -128,7 +128,7 @@ internal static class HUDBoresightStatePatch
     {
         hudPosition = Vector3.zero;
         var mainCamera = APIBus.MainCamera;
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (mainCamera == null || cockpitHudCamera == null)
             return false;
 

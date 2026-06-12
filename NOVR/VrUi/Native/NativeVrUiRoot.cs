@@ -1,5 +1,6 @@
 using NOVR.VrUi.SpecialBehavior;
 using System.Collections.Generic;
+using NOVR.HUD;
 using NuclearOption.Networking.Lobbies;
 using NuclearOption.Workshop;
 using UnityEngine;
@@ -246,7 +247,7 @@ public class NativeVrUiRoot : NOVRBehaviour
 
         if (_canvas != null)
         {
-            _canvas.worldCamera = APIBus.CockpitHudCamera;
+            _canvas.worldCamera = APIBus.MainCamera;
             _canvas.planeDistance = menuDistance;
         }
 
@@ -402,8 +403,7 @@ public class NativeVrUiRoot : NOVRBehaviour
     private void UpdateRecenterWidgetPlacement()
     {
         if (_recenterWidgetRoot == null) return;
-
-        var reference = APIBus.CockpitHudReference.transform;
+        var reference = SceneSingleton<SmoothedHMDHudArmature>.i.transform;
         _recenterWidgetRoot.transform.SetParent(reference, false);
         _recenterWidgetRoot.transform.localPosition = new Vector3(0f, RecenterWidgetVerticalOffsetMeters, RecenterWidgetDistanceMeters);
         _recenterWidgetRoot.transform.localRotation = Quaternion.identity;
@@ -411,7 +411,7 @@ public class NativeVrUiRoot : NOVRBehaviour
 
         if (_recenterWidgetCanvas != null)
         {
-            _recenterWidgetCanvas.worldCamera = APIBus.CockpitHudCamera;
+            _recenterWidgetCanvas.worldCamera = APIBus.MainCamera;
         }
     }
 

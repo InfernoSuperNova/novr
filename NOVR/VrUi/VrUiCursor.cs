@@ -1,14 +1,16 @@
 using System.Collections.Generic;
+using NOVR.HUD;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace NOVR.VrUi;
 
 [DefaultExecutionOrder(-1000)]
-public class VrUiCursor: NOVRBehaviour
+public class VrUiCursor : NOVRBehaviour
 {
     public static VrUiCursor? Instance { get; private set; }
     public static VrUiCursor? I => Instance;
@@ -20,10 +22,12 @@ public class VrUiCursor: NOVRBehaviour
     {
         base.Awake();
         Instance = this;
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void OnDestroy()
     {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
         if (Instance == this)
         {
             Instance = null;
@@ -40,6 +44,18 @@ public class VrUiCursor: NOVRBehaviour
             }
             _virtualMouse = null;
         }
+    }
+
+    private void OnSceneLoaded(Scene _, LoadSceneMode __) => ResetCursorCanvasState();
+
+    private void ResetCursorCanvasState()
+    {
+        _cursor = null;
+        _cursorRectTransform = null;
+        _cursorCanvas = null;
+        _cursorImage = null;
+        _cursorOverInteractive = false;
+        _hasInitializedEventSystem = false;
     }
 
     private Texture2D? _texture;
@@ -76,13 +92,7 @@ public class VrUiCursor: NOVRBehaviour
     
     private int ScreenWidth => Screen.width;
     private int ScreenHeight => Screen.height;
-    public Camera? UiCamera
-    {
-        get
-        {
-            return APIBus.CockpitHudCamera;
-        }
-    }
+    public Camera UiCamera => APIBus.MainCamera;
     
     
     public Vector2 GetScreenPoint()
@@ -205,30 +215,26 @@ public class VrUiCursor: NOVRBehaviour
         float cursorYaw = ProjectYawAngle(mousePos.x);        
         
         Vector3 localDirection = Quaternion.Euler(-cursorPitch, cursorYaw, 0f) * Vector3.forward;
-        Quaternion referenceRotation = GetProjectionReferenceRotation();
+        var reference = SceneSingleton<StaticHudArmature>.i.transform;
+        Quaternion referenceRotation = _hasProjectionReferenceOverride ? _projectionReferenceRotation : reference.rotation;
+        Vector3 origin = reference.TransformPoint(Vector3.zero);
         Vector3 worldDirection = referenceRotation * localDirection;
-        Vector3 viewportSpace = camera.WorldToViewportPoint(camera.transform.position + worldDirection * DefaultProjectionDistance, Camera.MonoOrStereoscopicEye.Mono);
+        Vector3 viewportSpace = camera.WorldToViewportPoint(origin + worldDirection * DefaultProjectionDistance, Camera.MonoOrStereoscopicEye.Mono);
         Vector2 inScreenSpace = new Vector2(viewportSpace.x * Screen.width, viewportSpace.y * Screen.height);
         float cursorDistance = GetDistanceUnderCursor(inScreenSpace);
-        Vector3 pos = camera.transform.position + worldDirection * cursorDistance;
-        _cursor.transform.position = pos;
-        _cursor.transform.rotation = Quaternion.LookRotation(worldDirection, camera.transform.up);
-    }
-
-    private Quaternion GetProjectionReferenceRotation()
-    {
-        if (_hasProjectionReferenceOverride)
-        {
-            return _projectionReferenceRotation;
-        }
-
-        return transform.parent != null ? transform.parent.rotation : Quaternion.identity;
+        var cursorPosition = origin + worldDirection * cursorDistance;
+        _cursor.transform.SetPositionAndRotation(cursorPosition, Quaternion.LookRotation(camera.transform.position - cursorPosition, reference.up));
     }
     
     private void EnsureCursorCanvas(Camera uiCaptureCamera)
     {
+        var staticHud = SceneSingleton<StaticHudArmature>.i;
         if (_cursor != null)
         {
+            if (staticHud != null && _cursor.transform.parent != staticHud.transform)
+            {
+                _cursor.transform.SetParent(staticHud.transform, false);
+            }
             if (_cursorImage != null)
             {
                 _cursorImage.texture = _texture;
@@ -251,7 +257,12 @@ public class VrUiCursor: NOVRBehaviour
         _cursorImage.raycastTarget = false;
         _cursorImage.texture = _texture;
         _cursorImage.color = CursorNormalColor;
-        LayerHelper.SetLayerRecursive(_cursor.transform, LayerHelper.GetVrUiLayer());
+        _cursorImage.material = NOVRShaders.UiMaterial;
+        LayerHelper.SetLayerRecursive(_cursor.transform, LayerHelper.Layers.Default);
+        if (staticHud != null)
+        {
+            _cursor.transform.SetParent(staticHud.transform, false);
+        }
         
         
         

@@ -3,12 +3,13 @@ using System;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 #endif
 using System.Collections.Generic;
+using NOVR.HUD;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
 namespace NOVR.VrCamera;
 
-public class VrCameraManager: MonoBehaviour
+public class VrCameraManager : MonoBehaviour
 {
     private const string NuclearOptionMainCameraName = "Main Camera";
     private const string NuclearOptionMenuCameraName = "Menu Camera";
@@ -29,15 +30,14 @@ public class VrCameraManager: MonoBehaviour
             {
                 continue;
             }
+            
+            
 
-            if (gameObject.name == NuclearOptionMainCameraName)
+            var existingTrackedCamera = GetTrackedMainCamera(gameObject);
+            if (existingTrackedCamera != null)
             {
-                var existingTrackedCamera = GetTrackedMainCamera(gameObject);
-                if (existingTrackedCamera != null)
-                {
-                    EnsureTrackedMainCameraRig(camera, existingTrackedCamera);
-                    continue;
-                }
+                EnsureTrackedMainCameraRig(camera, existingTrackedCamera);
+                continue;
             }
 
             if (IgnoredCameras.Contains(camera))
@@ -45,16 +45,9 @@ public class VrCameraManager: MonoBehaviour
                 continue;
             }
 
-            if (gameObject.name == NuclearOptionMainCameraName)
-            {
-                SetUpMainCameraRig(camera);
-            }
-            else
-            {
-                HandleChildCameras(camera);
-                gameObject.AddComponent<VrCamera>();
-                IgnoredCameras.Add(camera);
-            }
+            camera.transform.position = Vector3.zero;
+
+            SetUpMainCameraRig(camera);
         }
     }
 
@@ -107,8 +100,35 @@ public class VrCameraManager: MonoBehaviour
 
         trackedCameraObject.AddComponent<VrCamera>();
 
+        
+ 
+
         IgnoredCameras.Add(rootCamera);
         IgnoredCameras.Add(trackedCamera);
+        
+        var staticHudArmature = new GameObject("Static Hud Armature");
+        staticHudArmature.transform.SetParent(rootCamera.transform, false);
+        staticHudArmature.transform.localPosition = Vector3.zero;
+        staticHudArmature.transform.localRotation = Quaternion.identity;
+        
+        staticHudArmature.AddComponent<StaticHudArmature>();
+        
+        var headMountedHudArmature = new GameObject("Head Mounted Hud Armature");
+        headMountedHudArmature.transform.SetParent(rootCamera.transform, false);
+        headMountedHudArmature.transform.localPosition = Vector3.zero;
+        headMountedHudArmature.transform.localRotation = Quaternion.identity;
+        
+        headMountedHudArmature.AddComponent<HMDHudArmature>();
+        headMountedHudArmature.AddComponent<NOVRPoseDriver>();
+        
+        var smoothedHudArmature = new GameObject("Smoothed Hud Armature");
+        smoothedHudArmature.transform.SetParent(rootCamera.transform, false);
+        smoothedHudArmature.transform.localPosition = Vector3.zero;
+        smoothedHudArmature.transform.localRotation = Quaternion.identity;
+        
+        smoothedHudArmature.AddComponent<SmoothedHMDHudArmature>();
+        
+        
     }
 
     private static void EnsureTrackedMainCameraRig(Camera rootCamera, Camera trackedCamera)

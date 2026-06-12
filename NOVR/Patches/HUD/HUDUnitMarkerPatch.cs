@@ -35,7 +35,7 @@ internal static class HUDUnitMarkerPatch
     private static bool UpdatePosition(HUDUnitMarker __instance, FactionHQ hq, ref GlobalPosition viewPosition, ref Vector3 cameraForward)
     {
         var mainCamera = APIBus.MainCamera;
-        var screenSpaceCamera = APIBus.CockpitHudCamera;
+        var screenSpaceCamera = APIBus.MainCamera;
 
         var realCameraPosition = mainCamera.transform.GlobalPosition();
         var realCameraForward = mainCamera.transform.forward;
@@ -136,13 +136,13 @@ internal static class HUDUnitMarkerPatch
 
       var desiredForward = -up;
       if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
-        desiredForward = APIBus.CockpitHudCamera.transform.forward;
+        desiredForward = APIBus.MainCamera.transform.forward;
 
       desiredForward = Vector3.ProjectOnPlane(desiredForward, desiredUp);
       if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
-        desiredForward = Vector3.ProjectOnPlane(APIBus.CockpitHudCamera.transform.forward, desiredUp);
+        desiredForward = Vector3.ProjectOnPlane(APIBus.MainCamera.transform.forward, desiredUp);
       if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
-        desiredForward = Vector3.Cross(desiredUp, APIBus.CockpitHudCamera.transform.right);
+        desiredForward = Vector3.Cross(desiredUp, APIBus.MainCamera.transform.right);
 
       targetArrow.transform.rotation = Quaternion.LookRotation(desiredForward.normalized, desiredUp);
     }

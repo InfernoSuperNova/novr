@@ -26,7 +26,7 @@ internal static class HUDBombingStatePatch
     private static void UpdateWeaponDisplay(HUDBombingState __instance, Aircraft aircraft)
     {
         var mainCamera = APIBus.MainCamera;
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (mainCamera == null || cockpitHudCamera == null || aircraft == null)
             return;
 
@@ -43,7 +43,7 @@ internal static class HUDBombingStatePatch
         var ccrpCircle = (Image)CcrpCircleField.GetValue(state);
         var dropCountdown = (Text)DropCountdownField.GetValue(state);
         var ccrpFallTime = (Text)CcrpFallTimeField.GetValue(state);
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (alignmentBar == null || cockpitHudCamera == null || !alignmentBar.gameObject.activeSelf)
             return;
 
@@ -80,7 +80,7 @@ internal static class HUDBombingStatePatch
         var ccipLine = (Image)CcipLineField.GetValue(state);
         var ccipFallTime = (Text)CcipFallTimeField.GetValue(state);
         var velocityVector = SceneSingleton<FlightHud>.i.velocityVector;
-        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        var cockpitHudCamera = APIBus.MainCamera;
         if (ccipPipper == null || ccipLine == null || cockpitHudCamera == null || velocityVector == null || !ccipPipper.enabled)
             return;
 

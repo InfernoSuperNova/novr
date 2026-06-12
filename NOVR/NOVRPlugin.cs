@@ -36,6 +36,7 @@ public class NOVRPlugin : BaseUnityPlugin
         new ModConfiguration(Config);
         var harm = Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
         PatchLoader.Apply(harm);
+        NOVRShaders.Setup();
         Core.Create();
     }
 

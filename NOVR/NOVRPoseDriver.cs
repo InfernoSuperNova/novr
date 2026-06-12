@@ -18,14 +18,8 @@ public enum CalibrationAxes : byte
     Z = Roll,
 }
 
-public class NOVRPoseDriver: NOVRBehaviour
+public class NOVRPoseDriver : NOVRBehaviour
 {
-    
-    
-
-    
-
-
     
     protected override void OnBeforeRender()
     {

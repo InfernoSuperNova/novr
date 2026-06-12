@@ -1,3 +1,4 @@
+using NOVR.HUD;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,6 +9,11 @@ public class NOVRFlightHudBehavior : UIRenderedCanvasBehavior
     public override void Awake()
     {
         base.Awake();
+        
+        transform.SetParent(SceneSingleton<StaticHudArmature>.i.transform, false);
+        transform.position = new Vector3(0f, 0f, 1000f);
+        transform.rotation = Quaternion.identity;
+        
         var hudcenter = FindChildStartingWith(transform, "HUDCenter");
         if (hudcenter != null) hudcenter.gameObject.AddComponent(typeof(NoVrHudBehavior));
         
@@ -30,12 +36,6 @@ public class NOVRFlightHudBehavior : UIRenderedCanvasBehavior
 
         // var velocityVector = FindChildStartingWith(transform, "velocityVector");
         // if (velocityVector != null) velocityVector.gameObject.AddComponent(typeof(NOVRVelocityVectorBehavior));
-    }
-    
-    private void Update()
-    {
-        transform.position = new Vector3(0f, 0f, 1000f);
-        transform.rotation = Quaternion.identity;
     }
     
     private void MoveHmdPanelToHud(string panelName, Transform noVrHudParent, Vector3 localPosition, Vector3 localScale)
