@@ -1,12 +1,13 @@
+using UnityEngine.UI;
 using NOVR.PatchHelper;
 
 namespace NOVR.Patches.HUD;
 
 public class MFDScreenPatch
 {
-    [PatchPrefix(typeof(MFDScreen), "Setup")]
+    [PatchPrefix(typeof(MFDScreen), nameof(MFDScreen.Setup))]
     private static void Setup(MFDScreen __instance)
     {
-        __instance.highlight.enabled = false;
+        __instance.GetComponent<Image>().enabled = false;
     }
 }
