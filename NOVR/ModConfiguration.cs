@@ -15,9 +15,9 @@ public class ModConfiguration
     public readonly ConfigEntry<float> NativeMenuScale;
     public readonly ConfigEntry<float> NativeMenuDistance;
     public readonly ConfigEntry<float> NativeMenuHeightOffset;
+    public readonly ConfigEntry<bool> EnableNativeMenuEnvironment;
     public readonly ConfigEntry<float> CockpitHeadForwardOffset;
-    
-    
+
     public ModConfiguration(ConfigFile config)
     {
         Instance = this;
@@ -52,11 +52,17 @@ public class ModConfiguration
             "Native Menu Height Offset",
             0.0f,
             "Vertical offset in meters applied when NOVR's native VR menu UI is opened or recentered. Values from -0.25 to 1.0 are supported.");
+
+        EnableNativeMenuEnvironment = config.Bind(
+            "Experimental",
+            "Enable Native Menu Environment",
+            false,
+            "Show an experimental 3D native menu environment using real game preview assets.");
+
         CockpitHeadForwardOffset = config.Bind(
             "Experimental",
             "Cockpit Head Forward Offset",
             0.05f,
             "Offset in meters applied to the cockpit head forward vector. Helps keep the ejection seat bars out of your face.");
-        
     }
 }

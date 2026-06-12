@@ -23,6 +23,8 @@ public class NativeVrUiRoot : NOVRBehaviour
     private const float RecenterWidgetDistanceMeters = 1.35f;
     private const float RecenterWidgetVerticalOffsetMeters = -0.42f;
     private const float RecenterWidgetCanvasScale = 0.0018f;
+    private const float NativeMenuEnvironmentHeightOffsetMeters = 0.0f;
+    private const float NativeMenuEnvironmentMinimumMenuCenterHeightBelowHeadMeters = -5.25f;
     private static readonly Vector2 RecenterWidgetCanvasSize = new(320f, 96f);
 
     private readonly NativeGameActionAdapter _actions = new();
@@ -36,6 +38,7 @@ public class NativeVrUiRoot : NOVRBehaviour
     private NativeSettingsPanel? _settingsPanel;
     private NativeWorkshopPanel? _workshopPanel;
     private NativeVrUiSettingsPanel? _vrUiSettingsPanel;
+    private NativeMenuEnvironment? _menuEnvironment;
     private GameObject? _recenterWidgetRoot;
     private Canvas? _recenterWidgetCanvas;
     private Button? _recenterWidgetButton;
@@ -85,6 +88,7 @@ public class NativeVrUiRoot : NOVRBehaviour
             {
                 _root.SetActive(false);
             }
+            _menuEnvironment?.Hide();
             ClearNativeCursorProjectionReference();
             SetUtilityWidgetMode(ShouldShowStockNativeUiToggle()
                 ? UtilityWidgetMode.EnableNativeUi
@@ -165,6 +169,11 @@ public class NativeVrUiRoot : NOVRBehaviour
             _root.SetActive(shouldShowNativeUi);
         }
 
+        if (_root != null)
+        {
+            _menuEnvironment?.UpdateEnvironment(_root.transform, shouldShowNativeUi);
+        }
+
         SuppressOriginalMainCanvas(shouldShowNativeUi);
     }
 
@@ -187,6 +196,7 @@ public class NativeVrUiRoot : NOVRBehaviour
         {
             _root.SetActive(false);
         }
+        _menuEnvironment?.Hide();
         ClearNativeCursorProjectionReference();
         SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
     }
@@ -228,6 +238,7 @@ public class NativeVrUiRoot : NOVRBehaviour
         _vrUiSettingsPanel = _root.AddComponent<NativeVrUiSettingsPanel>();
         _vrUiSettingsPanel.Initialize(rectTransform, CloseVrUiSettingsPanel, RecenterMenu);
         _vrUiSettingsPanel.SetVisible(false);
+        _menuEnvironment = gameObject.AddComponent<NativeMenuEnvironment>();
         CreateRecenterWidget();
         _actions.ActionInvoked += OnNativeActionInvoked;
         _root.SetActive(false);
@@ -241,6 +252,12 @@ public class NativeVrUiRoot : NOVRBehaviour
 
         var menuDistance = GetNativeMenuDistance();
         var menuHeightOffset = GetNativeMenuHeightOffset();
+        var environmentEnabled = ModConfiguration.Instance?.EnableNativeMenuEnvironment.Value == true;
+        if (environmentEnabled)
+        {
+            menuHeightOffset += NativeMenuEnvironmentHeightOffsetMeters;
+        }
+
         var menuScale = BaseCanvasScale * GetNativeMenuScale();
         _root.transform.localScale = Vector3.one * menuScale;
 
@@ -262,16 +279,21 @@ public class NativeVrUiRoot : NOVRBehaviour
         
 
         _root.transform.SetParent(null, true);
-        ApplyMenuAnchor(menuDistance, menuHeightOffset);
+        ApplyMenuAnchor(
+            menuDistance,
+            menuHeightOffset,
+            environmentEnabled
+                ? NativeMenuEnvironmentMinimumMenuCenterHeightBelowHeadMeters
+                : MinimumMenuCenterHeightBelowHeadMeters);
         ApplyNativeCursorProjectionReference();
     }
 
-    private void ApplyMenuAnchor(float menuDistance, float menuHeightOffset)
+    private void ApplyMenuAnchor(float menuDistance, float menuHeightOffset, float minimumMenuCenterHeightBelowHeadMeters)
     {
         if (_root == null) return;
 
         var position = _menuAnchorPosition + (_menuAnchorRotation * Vector3.forward) * menuDistance + Vector3.up * menuHeightOffset;
-        var minimumHeight = _menuAnchorPosition.y + MinimumMenuCenterHeightBelowHeadMeters;
+        var minimumHeight = _menuAnchorPosition.y + minimumMenuCenterHeightBelowHeadMeters;
         if (position.y < minimumHeight)
         {
             position.y = minimumHeight;

@@ -130,9 +130,13 @@ public class NativeMainMenuShell : MonoBehaviour
 
     public void SetVisible(bool visible)
     {
-        if (visible)
+        if (visible && ShouldUseSourceBackground())
         {
             SyncSourceBackground();
+        }
+        else
+        {
+            ClearSourceBackground();
         }
 
         if (_containerTransform != null)
@@ -149,6 +153,22 @@ public class NativeMainMenuShell : MonoBehaviour
     private void OpenVrUiSettings()
     {
         _openVrUiSettings?.Invoke();
+    }
+
+    private static bool ShouldUseSourceBackground()
+    {
+        return !ModConfiguration.Instance.EnableNativeMenuEnvironment.Value;
+    }
+
+    private void ClearSourceBackground()
+    {
+        _sourceBackgroundGraphicId = 0;
+        _sourceBackgroundKind = BackgroundGraphicKind.None;
+
+        if (_sourceBackgroundObject == null) return;
+
+        Destroy(_sourceBackgroundObject);
+        _sourceBackgroundObject = null;
     }
 
     private void SyncSourceBackground()
