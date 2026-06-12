@@ -27,16 +27,6 @@ public class APIBus : MonoBehaviour
     private bool _loggedExtraEventsError = false;
     private HandoffState _state = HandoffState.NoState;
     
-
-    private APIBus()
-    {
-        if (CheckExtraDispatchers())
-        {
-            string trace = StackTraceUtility.ExtractStackTrace();
-            Debug.Log($"{typeof(APIBus)} ctor stack: " + trace);
-        }
-    }
-    
     public void Update()
     {
         if (!CheckExtraDispatchers()) return;
