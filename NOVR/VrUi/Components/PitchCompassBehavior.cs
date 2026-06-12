@@ -13,8 +13,8 @@ public class PitchCompassBehavior : MonoBehaviour
     private const float PitchStepDegrees = PitchRangeDegrees / FullPitchStepCount;
     private const string SliceRootName = "NOVR_PitchCompassSlices";
 
-    private static readonly FieldInfo PitchCompassField = AccessTools.Field(typeof(global::FlightHud), "pitchCompass");
-    private static readonly FieldInfo CockpitTransformField = AccessTools.Field(typeof(global::FlightHud), "cockpitTransform");
+    private static readonly FieldInfo PitchCompassField = AccessTools.Field(typeof(FlightHud), "pitchCompass");
+    private static readonly FieldInfo CockpitTransformField = AccessTools.Field(typeof(FlightHud), "cockpitTransform");
 
     private RawImage _sourcePitchCompass;
     private RectTransform _sliceRoot;
@@ -64,7 +64,7 @@ public class PitchCompassBehavior : MonoBehaviour
         {
             return;
         }
-        _flightHud = GetComponent<global::FlightHud>();
+        _flightHud = GetComponent<FlightHud>();
         if (_flightHud == null)
         {
             Debug.LogWarning($"{nameof(PitchCompassBehavior)}: Could not find FlightHud on {name}");

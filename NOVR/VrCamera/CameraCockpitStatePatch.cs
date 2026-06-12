@@ -1,6 +1,5 @@
 using System.Reflection;
 using HarmonyLib;
-using UnityEngine;
 
 namespace NOVR.VrCamera;
 

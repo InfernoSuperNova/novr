@@ -1,7 +1,4 @@
-﻿using System;
-using BepInEx.Configuration;
-
-namespace NOVR.VrTogglers;
+﻿namespace NOVR.VrTogglers;
 
 public class VrTogglerManager
 {

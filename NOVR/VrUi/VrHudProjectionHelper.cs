@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace NOVR.VrUi.HarmonyPatches;
 
-internal static class VrHudProjection
+internal static class VrHudProjectionHelper
 {
     public const float HudDistance = 1000.0f;
     private const float VrViewportHorizontalDegrees = 50.0f;

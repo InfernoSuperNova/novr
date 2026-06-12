@@ -29,8 +29,6 @@ public static class PatchLoader
         
         var attr = method.GetCustomAttribute<PatchAttribute>();
         if (attr == null) return;
-
-        LogInfo("Handling attribute " + attr + " for method " + method);
         
         switch (attr)
         {
@@ -50,7 +48,7 @@ public static class PatchLoader
         var original = AccessTools.Method(
             attr.TargetType,
             attr.MethodName);
-        LogInfo("Patching prefix for method " + method);
+        LogInfo("Patching prefix for " + attr.TargetType + "." + method.Name);
         harmony.Patch(
             original,
             prefix: new HarmonyMethod(method));
@@ -62,7 +60,7 @@ public static class PatchLoader
             attr.TargetType,
             attr.MethodName);
 
-        LogInfo("Patching postfix for method " + method);
+        LogInfo("Patching postfix for " + attr.TargetType + "." + method.Name);
         harmony.Patch(
             original,
             postfix: new HarmonyMethod(method));
