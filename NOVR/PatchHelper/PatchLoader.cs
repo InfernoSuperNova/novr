@@ -8,7 +8,7 @@ public static class PatchLoader
 {
     public static void Apply(Harmony harmony)
     {
-        NOVRLog.Info("Running and applying PatchLoader");
+        LogInfo("Applying...");
         var methods = Assembly.GetExecutingAssembly()
             .GetTypes()
             .SelectMany(t => t.GetMethods(
@@ -20,13 +20,18 @@ public static class PatchLoader
         {
             HandleAttribute(method, harmony);
         }
+
+        LogInfo("...Done.");
     }
 
     private static void HandleAttribute(MethodInfo method, Harmony harmony)
     {
+        
         var attr = method.GetCustomAttribute<PatchAttribute>();
         if (attr == null) return;
 
+        LogInfo("Handling attribute " + attr + " for method " + method);
+        
         switch (attr)
         {
             case PatchPrefixAttribute prefixAttr:
@@ -45,7 +50,7 @@ public static class PatchLoader
         var original = AccessTools.Method(
             attr.TargetType,
             attr.MethodName);
-
+        LogInfo("Patching prefix for method " + method);
         harmony.Patch(
             original,
             prefix: new HarmonyMethod(method));
@@ -57,8 +62,11 @@ public static class PatchLoader
             attr.TargetType,
             attr.MethodName);
 
+        LogInfo("Patching postfix for method " + method);
         harmony.Patch(
             original,
             postfix: new HarmonyMethod(method));
     }
+
+    private static void LogInfo(object log) => NOVRLog.Info($"PatchLoader: {log}");
 }
