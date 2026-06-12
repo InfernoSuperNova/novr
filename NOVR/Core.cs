@@ -12,6 +12,7 @@ namespace NOVR;
 
 public class Core : MonoBehaviour
 {
+    private static bool _isApplicationQuitting;
     
     private float _originalFixedDeltaTime;
 
@@ -30,13 +31,27 @@ public class Core : MonoBehaviour
 
     private void Awake()
     {
+        Application.quitting -= HandleApplicationQuitting;
+        Application.quitting += HandleApplicationQuitting;
         DontDestroyOnLoad(gameObject);
         gameObject.AddComponent<VrCameraManager>();
         gameObject.AddComponent<APIBus>();
     }
 
+    private static void HandleApplicationQuitting()
+    {
+        _isApplicationQuitting = true;
+    }
+
+    private void OnApplicationQuit()
+    {
+        _isApplicationQuitting = true;
+    }
+
     private void OnDestroy()
     {
+        if (_isApplicationQuitting) return;
+
         Debug.Log("NOVR has been destroyed. This shouldn't have happened. Recreating...");
         
         Create();

@@ -15,6 +15,7 @@ public class ModConfiguration
     public readonly ConfigEntry<float> NativeMenuScale;
     public readonly ConfigEntry<float> NativeMenuDistance;
     public readonly ConfigEntry<float> NativeMenuHeightOffset;
+    public readonly ConfigEntry<bool> EnableNativeMenuEnvironment;
 
     public ModConfiguration(ConfigFile config)
     {
@@ -50,5 +51,11 @@ public class ModConfiguration
             "Native Menu Height Offset",
             0.0f,
             "Vertical offset in meters applied when NOVR's native VR menu UI is opened or recentered. Values from -0.25 to 1.0 are supported.");
+
+        EnableNativeMenuEnvironment = config.Bind(
+            "Experimental",
+            "Enable Native Menu Environment",
+            false,
+            "Show an experimental 3D native menu environment using real game preview assets.");
     }
 }

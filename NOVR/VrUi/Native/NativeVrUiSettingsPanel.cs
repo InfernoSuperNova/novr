@@ -28,6 +28,8 @@ public sealed class NativeVrUiSettingsPanel : MonoBehaviour
     private Font? _font;
     private Text? _nativeUiValueText;
     private Button? _nativeUiToggleButton;
+    private Text? _environmentValueText;
+    private Button? _environmentToggleButton;
     private Text? _scaleValueText;
     private Text? _distanceValueText;
     private Text? _heightValueText;
@@ -68,15 +70,27 @@ public sealed class NativeVrUiSettingsPanel : MonoBehaviour
             panel,
             "NATIVE VR UI",
             "Use NOVR's native menu instead of the stock rendered UI.",
-            new Vector2(0f, 230f));
+            new Vector2(0f, 230f),
+            ToggleNativeUi,
+            out _nativeUiToggleButton,
+            out _nativeUiValueText);
 
-        CreateText("Placement Header", panel, "PLACEMENT", new Vector2(0f, 145f), new Vector2(860f, 30f), 17, TextAnchor.MiddleCenter, new Color(0.84f, 0.90f, 0.92f, 1f));
+        CreateToggleRow(
+            panel,
+            "3D MENU ENVIRONMENT",
+            "Show an experimental scene behind the native menu.",
+            new Vector2(0f, 140f),
+            ToggleEnvironment,
+            out _environmentToggleButton,
+            out _environmentValueText);
+
+        CreateText("Placement Header", panel, "PLACEMENT", new Vector2(0f, 50f), new Vector2(860f, 30f), 17, TextAnchor.MiddleCenter, new Color(0.84f, 0.90f, 0.92f, 1f));
 
         CreateSettingRow(
             panel,
             "SCALE",
             "Overall native menu size.",
-            new Vector2(0f, 65f),
+            new Vector2(0f, -30f),
             () => ChangeScale(-0.05f),
             () => ChangeScale(0.05f),
             out _scaleValueText);
@@ -85,7 +99,7 @@ public sealed class NativeVrUiSettingsPanel : MonoBehaviour
             panel,
             "DISTANCE",
             "Meters from your headset when opened or recentered.",
-            new Vector2(0f, -45f),
+            new Vector2(0f, -125f),
             () => ChangeDistance(-0.1f),
             () => ChangeDistance(0.1f),
             out _distanceValueText);
@@ -94,26 +108,33 @@ public sealed class NativeVrUiSettingsPanel : MonoBehaviour
             panel,
             "HEIGHT OFFSET",
             "Vertical offset in meters relative to your headset.",
-            new Vector2(0f, -155f),
+            new Vector2(0f, -220f),
             () => ChangeHeightOffset(-0.05f),
             () => ChangeHeightOffset(0.05f),
             out _heightValueText);
 
-        CreateMenuButton("RESET DEFAULTS", panel, new Vector2(-160f, -290f), new Vector2(220f, 42f), ButtonColor, ResetDefaults, 13);
-        CreateMenuButton("RECENTER", panel, new Vector2(160f, -290f), new Vector2(180f, 42f), ActionButtonColor, Recenter, 14);
+        CreateMenuButton("RESET DEFAULTS", panel, new Vector2(-160f, -310f), new Vector2(220f, 42f), ButtonColor, ResetDefaults, 13);
+        CreateMenuButton("RECENTER", panel, new Vector2(160f, -310f), new Vector2(180f, 42f), ActionButtonColor, Recenter, 14);
         _statusText = CreateText("Status", panel, "", new Vector2(0f, -340f), new Vector2(860f, 34f), 13, TextAnchor.MiddleCenter, new Color(0.84f, 0.90f, 0.92f, 1f));
 
         CreateMenuButton("BACK", _container, new Vector2(NativeUiLayout.FooterLeftX, NativeUiLayout.FooterY), NativeUiLayout.FooterButtonSize, BackButtonColor, Close, 15);
         NativePanelTransition.SetVisible(_container, false, instant: true);
     }
 
-    private void CreateToggleRow(RectTransform parent, string label, string description, Vector2 anchoredPosition)
+    private void CreateToggleRow(
+        RectTransform parent,
+        string label,
+        string description,
+        Vector2 anchoredPosition,
+        UnityEngine.Events.UnityAction onClick,
+        out Button toggleButton,
+        out Text valueText)
     {
         var row = CreatePanel($"{label} Row", parent, new Color(0.08f, 0.095f, 0.105f, 0.72f), anchoredPosition, new Vector2(860f, 82f));
         CreateText($"{label} Label", row, label, new Vector2(-280f, 16f), new Vector2(250f, 28f), 17, TextAnchor.MiddleLeft, Color.white);
         CreateText($"{label} Description", row, description, new Vector2(-280f, -18f), new Vector2(430f, 28f), 12, TextAnchor.MiddleLeft, new Color(0.75f, 0.82f, 0.84f, 1f));
-        _nativeUiToggleButton = CreateMenuButton("ON", row, new Vector2(290f, 0f), new Vector2(150f, 40f), ToggleOnColor, ToggleNativeUi, 15);
-        _nativeUiValueText = _nativeUiToggleButton.GetComponentInChildren<Text>();
+        toggleButton = CreateMenuButton("ON", row, new Vector2(290f, 0f), new Vector2(150f, 40f), ToggleOnColor, onClick, 15);
+        valueText = toggleButton.GetComponentInChildren<Text>();
     }
 
     private void CreateSettingRow(
@@ -178,6 +199,18 @@ public sealed class NativeVrUiSettingsPanel : MonoBehaviour
             : "Native VR UI disabled. Use the headset VR UI ON button to return.");
     }
 
+    private void ToggleEnvironment()
+    {
+        var config = ModConfiguration.Instance;
+        var nextValue = !config.EnableNativeMenuEnvironment.Value;
+        config.EnableNativeMenuEnvironment.Value = nextValue;
+        config.Config.Save();
+        RefreshValues();
+        SetStatus(nextValue
+            ? "3D menu environment enabled."
+            : "3D menu environment disabled.");
+    }
+
     private void Recenter()
     {
         _recenter?.Invoke();
@@ -200,6 +233,7 @@ public sealed class NativeVrUiSettingsPanel : MonoBehaviour
     {
         var config = ModConfiguration.Instance;
         RefreshNativeUiToggle(config.EnableNativeMenuUi.Value);
+        RefreshEnvironmentToggle(config.EnableNativeMenuEnvironment.Value);
         if (_scaleValueText != null) _scaleValueText.text = $"{config.NativeMenuScale.Value:0.00}x";
         if (_distanceValueText != null) _distanceValueText.text = $"{config.NativeMenuDistance.Value:0.0} m";
         if (_heightValueText != null) _heightValueText.text = $"{config.NativeMenuHeightOffset.Value:+0.00;-0.00;0.00} m";
@@ -215,6 +249,19 @@ public sealed class NativeVrUiSettingsPanel : MonoBehaviour
         if (_nativeUiToggleButton != null)
         {
             NativeButtonFeedback.SetNormalColor(_nativeUiToggleButton, enabled ? ToggleOnColor : ToggleOffColor);
+        }
+    }
+
+    private void RefreshEnvironmentToggle(bool enabled)
+    {
+        if (_environmentValueText != null)
+        {
+            _environmentValueText.text = enabled ? "ON" : "OFF";
+        }
+
+        if (_environmentToggleButton != null)
+        {
+            NativeButtonFeedback.SetNormalColor(_environmentToggleButton, enabled ? ToggleOnColor : ToggleOffColor);
         }
     }
 
