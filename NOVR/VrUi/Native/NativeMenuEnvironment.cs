@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
@@ -99,6 +100,8 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     private Color _originalEnvironmentCameraBackgroundColor;
     private float _originalEnvironmentCameraFarClipPlane;
     private int _originalEnvironmentCameraCullingMask;
+    private bool _originalEnvironmentCameraRenderPostProcessing;
+    private Volume? _postProcessingVolume;
     private bool _renderSettingsCaptured;
     private bool _environmentRenderSettingsApplied;
     private bool _environmentCameraSettingsCaptured;
@@ -1133,6 +1136,7 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         RenderSettings.fogColor = MenuEnvironmentFogColor;
         RenderSettings.fogDensity = MenuEnvironmentFogDensity;
         _environmentRenderSettingsApplied = true;
+        ApplyEnvironmentPostProcessing();
         Debug.Log(skyboxMaterial != null
             ? "[NOVR] Native menu environment applied skybox render settings " +
               $"using '{skyboxMaterial.name}' with shader '{skyboxMaterial.shader.name}' and fog density {MenuEnvironmentFogDensity}."
@@ -1151,7 +1155,57 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         RenderSettings.fogDensity = _originalFogDensity;
         RenderSettings.fogMode = _originalFogMode;
         _environmentRenderSettingsApplied = false;
+        RemoveEnvironmentPostProcessing();
         Debug.Log("[NOVR] Native menu environment restored skybox render settings.");
+    }
+
+    private void ApplyEnvironmentPostProcessing()
+    {
+        if (_postProcessingVolume != null) return;
+
+        var go = new GameObject("NOVR Menu Post Processing");
+        DontDestroyOnLoad(go);
+
+        _postProcessingVolume = go.AddComponent<Volume>();
+        _postProcessingVolume.isGlobal      = true;
+        _postProcessingVolume.blendDistance = 0.5f;
+        _postProcessingVolume.weight        = 1.0f;
+        _postProcessingVolume.priority      = 1.0f; // sit above any leftover scene volumes
+
+        var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+
+        var tone = profile.Add<Tonemapping>();
+        tone.mode.Override(TonemappingMode.Neutral);
+
+        var bloom = profile.Add<Bloom>();
+        bloom.threshold.Override(0f);
+        bloom.intensity.Override(1.0f);
+        bloom.scatter.Override(0.5f);
+        bloom.highQualityFiltering.Override(true);
+
+        var vignette = profile.Add<Vignette>();
+        vignette.color.Override(Color.black);
+        vignette.center.Override(new Vector2(0.5f, 0.5f));
+        vignette.intensity.Override(0.4f);
+        vignette.smoothness.Override(0.5f);
+
+        _postProcessingVolume.sharedProfile = profile;
+
+        Debug.Log("[NOVR] Native menu environment created post-processing volume.");
+    }
+
+    private void RemoveEnvironmentPostProcessing()
+    {
+        if (_postProcessingVolume == null) return;
+
+        if (_postProcessingVolume.sharedProfile != null)
+        {
+            Object.Destroy(_postProcessingVolume.sharedProfile);
+        }
+
+        Object.Destroy(_postProcessingVolume.gameObject);
+        _postProcessingVolume = null;
+        Debug.Log("[NOVR] Native menu environment removed post-processing volume.");
     }
 
     private void CaptureRenderSettings()
@@ -1185,6 +1239,8 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
             _originalEnvironmentCameraBackgroundColor = camera.backgroundColor;
             _originalEnvironmentCameraFarClipPlane = camera.farClipPlane;
             _originalEnvironmentCameraCullingMask = camera.cullingMask;
+            var capturedCameraData = camera.GetComponent<UniversalAdditionalCameraData>();
+            _originalEnvironmentCameraRenderPostProcessing = capturedCameraData == null || capturedCameraData.renderPostProcessing;
             _environmentCameraSettingsCaptured = true;
         }
 
@@ -1207,6 +1263,13 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
             changed = true;
         }
 
+        var cameraData = camera.GetComponent<UniversalAdditionalCameraData>();
+        if (cameraData != null && !cameraData.renderPostProcessing)
+        {
+            cameraData.renderPostProcessing = true;
+            changed = true;
+        }
+
         if (changed)
         {
             Debug.Log($"[NOVR] Native menu environment configured '{camera.name}' for skybox rendering.");
@@ -1223,6 +1286,12 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
             _environmentCamera.backgroundColor = _originalEnvironmentCameraBackgroundColor;
             _environmentCamera.farClipPlane = _originalEnvironmentCameraFarClipPlane;
             _environmentCamera.cullingMask = _originalEnvironmentCameraCullingMask;
+            var cameraData = _environmentCamera.GetComponent<UniversalAdditionalCameraData>();
+            if (cameraData != null)
+            {
+                cameraData.renderPostProcessing = _originalEnvironmentCameraRenderPostProcessing;
+            }
+
             Debug.Log($"[NOVR] Native menu environment restored '{_environmentCamera.name}' camera settings.");
         }
 
