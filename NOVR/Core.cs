@@ -70,6 +70,12 @@ public class Core : MonoBehaviour
         
         _headsetData = NOVRBehaviour.Create<NOVRHeadsetData>(transform);
         _vrUi = NOVRBehaviour.Create<NOUIManager>(transform);
+
+        if (ModConfiguration.Instance.LogXrStartupDiagnostics.Value &&
+            gameObject.GetComponent<XrStartupDiagnosticsBehaviour>() == null)
+        {
+            gameObject.AddComponent<XrStartupDiagnosticsBehaviour>();
+        }
         
         _vrTogglerManager = new VrTogglerManager();
         

@@ -16,6 +16,8 @@ public class ModConfiguration
     public readonly ConfigEntry<float> NativeMenuDistance;
     public readonly ConfigEntry<float> NativeMenuHeightOffset;
     public readonly ConfigEntry<bool> EnableNativeMenuEnvironment;
+    public readonly ConfigEntry<bool> EnableExperimentalSteamVrControllerProfiles;
+    public readonly ConfigEntry<bool> LogXrStartupDiagnostics;
     public readonly ConfigEntry<float> CockpitHeadForwardOffset;
 
     public ModConfiguration(ConfigFile config)
@@ -58,6 +60,18 @@ public class ModConfiguration
             "Enable Native Menu Environment",
             false,
             "Show an experimental 3D native menu environment using real game preview assets.");
+
+        EnableExperimentalSteamVrControllerProfiles = config.Bind(
+            "Experimental",
+            "Enable Experimental SteamVR Controller Profiles",
+            false,
+            "Register a minimal set of OpenXR controller interaction profiles before VR startup. Enables Valve Index, HTC Vive, and Khronos Simple Controller profiles only; hand tracking is not enabled.");
+
+        LogXrStartupDiagnostics = config.Bind(
+            "Diagnostics",
+            "Log XR Startup Diagnostics",
+            false,
+            "Log read-only XR loader, OpenXR runtime, subsystem, and input device state during VR startup.");
 
         CockpitHeadForwardOffset = config.Bind(
             "Experimental",
