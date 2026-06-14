@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using NuclearOption.Networking;
@@ -31,6 +32,7 @@ public class NativeSinglePlayerMissionPanel : MonoBehaviour
     private readonly List<TagFilterDefinition> _tagFilters = new();
 
     private NativeGameActionAdapter? _actions;
+    private Action? _missionLaunchStarted;
     private RectTransform? _container;
     private Font? _font;
     private Text? _titleText;
@@ -45,9 +47,10 @@ public class NativeSinglePlayerMissionPanel : MonoBehaviour
     private int _activeTagFilterIndex;
     private bool _loaded;
 
-    public void Initialize(NativeGameActionAdapter actions, RectTransform root)
+    public void Initialize(NativeGameActionAdapter actions, RectTransform root, Action missionLaunchStarted)
     {
         _actions = actions;
+        _missionLaunchStarted = missionLaunchStarted;
         _font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         BuildLayout(root);
     }
@@ -348,6 +351,7 @@ public class NativeSinglePlayerMissionPanel : MonoBehaviour
         }
 
         MissionManager.SetMission(mission, checkIfSame: false);
+        _missionLaunchStarted?.Invoke();
         NetworkManagerNuclearOption.i.StartHost(new HostOptions(SocketType.Offline, GameState.SinglePlayer, mission.MapKey));
     }
 

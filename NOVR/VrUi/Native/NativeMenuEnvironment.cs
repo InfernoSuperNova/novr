@@ -12,34 +12,24 @@ namespace NOVR.VrUi.Native;
 
 public sealed class NativeMenuEnvironment : MonoBehaviour
 {
+    private const string EnvironmentSceneName = "NOVR Menu Environment Scene";
     private const string EnvironmentRootName = "NOVR Native Menu Environment";
     private const string VisualRootName = "Visuals";
     private const string PreviewUnitName = "AttackHelo1";
     private const string PreviewShipName = "Frigate1";
     private const string NavLightStarburstTextureName = "starburst";
-    private const string BackdropWaterName = "BackdropWater";
-    private const string WaterUnderLayerName = "waterUnderLayer";
-    private const string MenuBackdropWaterName = "Menu Environment BackdropWater";
-    private const string CloudPlaneName = "cloudPlane";
-    private const string MenuCloudPlaneName = "NOVR Menu Environment Cloud Plane";
+    private const string SimpleWaterPlaneName = "NOVR Menu Environment Water Plane";
     private const string MenuCameraName = "Menu Camera";
     private const string DefaultSkyboxMaterialName = "Default-Skybox";
     private const string EncyclopediaSceneName = "Encyclopedia";
-    private const string EncyclopediaScenePath = "Assets/Scenes/Encyclopedia/Encyclopedia.unity";
     private const float EnvironmentCameraFarClipPlane = 80000f;
     private const float MenuEnvironmentFogDensity = 0.00105f;
-    private const float MissingAssetRetryIntervalSeconds = 1f;
-    private const float AssetWarmupRetryIntervalSeconds = 3f;
-    private const float AssetWarmupStartupDelaySeconds = 2f;
-    private const float AssetWarmupReadyTimeoutSeconds = 12f;
     private static readonly Vector3 MenuEnvironmentWorldAnchor = new(-23.8808f, 2.774f, -821.3446f);
-    private static readonly Vector3 WaterLocalPosition = new(0f, -10f, -9.66f);
-    private static readonly Vector3 CloudPlaneLocalPosition = new(0f, 500f, 0f);
-    private static readonly Vector3 CloudPlaneLocalScale = new(1f, 10f, 1f);
+    private static readonly Vector3 SimpleWaterPlaneLocalPosition = new(0f, -10f, -9.66f);
+    private static readonly Vector3 SimpleWaterPlaneLocalScale = new(9000f, 1f, 9000f);
     private static readonly Color MenuEnvironmentFogColor = new(0.52f, 0.68f, 0.80f, 1f);
-    private static readonly Color CloudMaterialColor = new(3.75f, 3.78f, 1.72f, 0.98f);
-    private static readonly Color CloudLayerParticleColor = new(1f, 1f, 1f, 0.5f);
-    private static readonly Color DistantCloudParticleColor = Color.white;
+    private static readonly Color SimpleWaterBaseColor = new(0.12f, 0.32f, 0.42f, 1f);
+    private static readonly Color SimpleWaterHighlightColor = new(0.28f, 0.58f, 0.70f, 1f);
     private static readonly Vector3 ShipHangarSourceAnchor = new(0f, 3.8098f, -22.1115f);
     private static readonly Vector3 ShipHangarTargetAnchor = new(0f, 1.25f, 0.45f);
     private static readonly Vector3 PreviewLocalOffset = new(23.8808f, -2.774f, 821.3446f);
@@ -85,16 +75,9 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     private Transform? _visualRoot;
     private GameObject? _shipRoot;
     private GameObject? _previewUnit;
-    private GameObject? _waterBackdrop;
-    private GameObject? _waterUnderLayer;
-    private GameObject? _cloudPlane;
-    private Material? _originalSkybox;
-    private Color _originalAmbientLight;
-    private AmbientMode _originalAmbientMode;
-    private bool _originalFog;
-    private Color _originalFogColor;
-    private float _originalFogDensity;
-    private FogMode _originalFogMode;
+    private GameObject? _waterPlane;
+    private Material? _waterMaterial;
+    private Texture2D? _waterTexture;
     private Camera? _environmentCamera;
     private CameraClearFlags _originalEnvironmentCameraClearFlags;
     private Color _originalEnvironmentCameraBackgroundColor;
@@ -102,37 +85,50 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     private int _originalEnvironmentCameraCullingMask;
     private bool _originalEnvironmentCameraRenderPostProcessing;
     private Volume? _postProcessingVolume;
-    private bool _renderSettingsCaptured;
     private bool _environmentRenderSettingsApplied;
     private bool _environmentCameraSettingsCaptured;
+    private bool _gameStateListenerRegistered;
+    private bool _sceneUnloadedListenerRegistered;
+    private Scene _environmentScene;
+    private RenderSettingsSnapshot _originalRenderSettings;
+    private bool _renderSettingsCaptured;
     private bool _spawnAttempted;
-    private bool _assetWarmupStarted;
-    private bool _assetWarmupComplete;
-    private bool _assetWarmupFailed;
-    private Scene _warmupScene;
-    private bool _warmupSceneLoadedByEnvironment;
-    private float _nextAssetWarmupAttemptTime;
-    private float _nextMissingAssetRetryTime;
-    private static GameObject[]? _resourceGameObjectCache;
-    private static int _lastLoggedResourceGameObjectCount = -1;
+
+    private struct RenderSettingsSnapshot
+    {
+        public Material? Skybox;
+        public AmbientMode AmbientMode;
+        public Color AmbientLight;
+        public Color AmbientSkyColor;
+        public Color AmbientEquatorColor;
+        public Color AmbientGroundColor;
+        public float AmbientIntensity;
+        public bool Fog;
+        public FogMode FogMode;
+        public Color FogColor;
+        public float FogDensity;
+        public float FogStartDistance;
+        public float FogEndDistance;
+        public float ReflectionIntensity;
+    }
 
     public void UpdateEnvironment(Transform menuTransform, bool shouldShow)
     {
         var enabled = shouldShow && ModConfiguration.Instance.EnableNativeMenuEnvironment.Value;
         if (!enabled)
         {
-            SetVisible(false);
-            RestoreEnvironmentCameraSettings();
-            RestoreEnvironmentRenderSettings();
+            Hide();
+            return;
+        }
+
+        if (!EnsureEnvironmentScene())
+        {
             return;
         }
 
         EnsureRoot();
         PlaceRoot(menuTransform);
-        RefreshMissingAssetCachesIfNeeded();
-        EnsureEnvironmentAssetWarmup();
-        EnsureGameWaterObjects();
-        EnsureCloudPlane();
+        EnsureSimpleWaterPlane();
         ApplyEnvironmentRenderSettings();
         ApplyEnvironmentCameraSettings();
         EnsurePreviewScene();
@@ -140,6 +136,19 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         ApplyShipVisualOverrides();
         ApplyAircraftVisualOverrides();
         RestorePreviewEffectObjects();
+    }
+
+    private void OnEnable()
+    {
+        RegisterGameStateListener();
+        RegisterSceneUnloadedListener();
+    }
+
+    private void OnDisable()
+    {
+        UnregisterGameStateListener();
+        UnregisterSceneUnloadedListener();
+        Hide();
     }
 
     public void Hide()
@@ -151,126 +160,145 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
 
     private void OnDestroy()
     {
+        UnregisterGameStateListener();
+        UnregisterSceneUnloadedListener();
+        DestroyEnvironmentScene();
+    }
+
+    private void RegisterGameStateListener()
+    {
+        if (_gameStateListenerRegistered) return;
+
+        GameManager.OnGameStateChanged.AddListener(OnGameStateChanged);
+        _gameStateListenerRegistered = true;
+    }
+
+    private void UnregisterGameStateListener()
+    {
+        if (!_gameStateListenerRegistered) return;
+
+        GameManager.OnGameStateChanged.RemoveListener(OnGameStateChanged);
+        _gameStateListenerRegistered = false;
+    }
+
+    private void OnGameStateChanged()
+    {
+        if (GameManager.gameState == GameState.Menu) return;
+
+        DestroyEnvironmentScene();
+    }
+
+    private void RegisterSceneUnloadedListener()
+    {
+        if (_sceneUnloadedListenerRegistered) return;
+
+        SceneManager.sceneUnloaded += OnSceneUnloaded;
+        _sceneUnloadedListenerRegistered = true;
+    }
+
+    private void UnregisterSceneUnloadedListener()
+    {
+        if (!_sceneUnloadedListenerRegistered) return;
+
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        _sceneUnloadedListenerRegistered = false;
+    }
+
+    private void OnSceneUnloaded(Scene scene)
+    {
+        if (!string.Equals(scene.name, EnvironmentSceneName, StringComparison.OrdinalIgnoreCase)) return;
+
+        ClearEnvironmentSceneObjectReferences();
+        ResetSceneScopedRenderingState();
+        _environmentScene = default;
+        Debug.Log($"[NOVR] Native menu environment cleared cached objects after scene '{EnvironmentSceneName}' unloaded.");
+    }
+
+    private bool EnsureEnvironmentScene()
+    {
+        if (_environmentScene.IsValid() && _environmentScene.isLoaded)
+        {
+            ResetSceneObjectReferencesIfDestroyed();
+            return true;
+        }
+
+        ClearEnvironmentSceneObjectReferences();
+
+        var existingScene = FindLoadedSceneByName(EnvironmentSceneName);
+        if (existingScene.IsValid() && existingScene.isLoaded)
+        {
+            _environmentScene = existingScene;
+            return true;
+        }
+
+        _environmentScene = SceneManager.CreateScene(EnvironmentSceneName);
+        if (!_environmentScene.IsValid() || !_environmentScene.isLoaded)
+        {
+            Debug.LogWarning("[NOVR] Native menu environment could not create its scene.");
+            _environmentScene = default;
+            return false;
+        }
+
+        Debug.Log($"[NOVR] Native menu environment created scene '{_environmentScene.name}'.");
+        return true;
+    }
+
+    private void DestroyEnvironmentScene()
+    {
+        SetVisible(false);
+        StopAllCoroutines();
         RestoreEnvironmentCameraSettings();
         RestoreEnvironmentRenderSettings();
-        UnloadWarmupScene();
+        ClearEnvironmentSceneObjectReferences(destroyRoot: true);
+
+        if (_environmentScene.IsValid() && _environmentScene.isLoaded)
+        {
+            SceneManager.UnloadSceneAsync(_environmentScene);
+            Debug.Log($"[NOVR] Native menu environment unloaded scene '{EnvironmentSceneName}'.");
+        }
+
+        _environmentScene = default;
     }
 
-    private void EnsureEnvironmentAssetWarmup()
+    private void ResetSceneObjectReferencesIfDestroyed()
     {
-        if (_assetWarmupStarted ||
-            _assetWarmupComplete ||
-            (HasGameWaterObjects() && _cloudPlane != null))
-        {
-            return;
-        }
+        if (_environmentRoot != null) return;
 
-        if (_assetWarmupFailed && Time.unscaledTime < _nextAssetWarmupAttemptTime)
-        {
-            return;
-        }
-
-        _assetWarmupFailed = false;
-        _assetWarmupStarted = true;
-        StartCoroutine(WarmEncyclopediaSceneAssets());
+        ClearEnvironmentSceneObjectReferences();
     }
 
-    private IEnumerator WarmEncyclopediaSceneAssets()
+    private void ClearEnvironmentSceneObjectReferences(bool destroyRoot = false)
     {
-        var startTime = Time.unscaledTime;
-        while (Time.unscaledTime - startTime < AssetWarmupStartupDelaySeconds)
+        if (destroyRoot && _environmentRoot != null)
         {
-            yield return null;
+            Object.Destroy(_environmentRoot);
         }
 
-        startTime = Time.unscaledTime;
-        while (Encyclopedia.i == null && Time.unscaledTime - startTime < AssetWarmupReadyTimeoutSeconds)
-        {
-            yield return null;
-        }
+        DestroySimpleWaterResources();
 
-        var scene = FindLoadedScene(EncyclopediaScenePath, EncyclopediaSceneName);
-        if (!scene.IsValid())
-        {
-            Debug.Log($"[NOVR] Native menu environment loading '{EncyclopediaScenePath}' additively to warm environment assets.");
-
-            AsyncOperation? loadOperation;
-            try
-            {
-                loadOperation = SceneManager.LoadSceneAsync(EncyclopediaScenePath, LoadSceneMode.Additive);
-            }
-            catch (Exception exception)
-            {
-                MarkAssetWarmupFailed($"could not start Encyclopedia scene warmup: {exception}");
-                yield break;
-            }
-
-            if (loadOperation == null)
-            {
-                MarkAssetWarmupFailed($"SceneManager could not start loading '{EncyclopediaScenePath}'.");
-                yield break;
-            }
-
-            yield return loadOperation;
-
-            scene = FindLoadedScene(EncyclopediaScenePath, EncyclopediaSceneName);
-            if (!scene.IsValid() || !scene.isLoaded)
-            {
-                MarkAssetWarmupFailed($"SceneManager finished loading '{EncyclopediaScenePath}', but the scene was not available.");
-                yield break;
-            }
-
-            _warmupScene = scene;
-            _warmupSceneLoadedByEnvironment = true;
-            Debug.Log($"[NOVR] Native menu environment loaded warmup scene '{scene.name}' with {scene.rootCount} root objects.");
-        }
-        else
-        {
-            Debug.Log($"[NOVR] Native menu environment using already-loaded warmup scene '{scene.name}'.");
-        }
-
-        DisableWarmupSceneRoots(scene, _warmupSceneLoadedByEnvironment);
-        yield return null;
-        yield return new WaitForEndOfFrame();
-        _resourceGameObjectCache = null;
-        EnsureGameWaterObjects();
-        EnsureCloudPlane();
-
-        _assetWarmupComplete = HasGameWaterObjects() && _cloudPlane != null;
-        _assetWarmupFailed = !_assetWarmupComplete;
-        _assetWarmupStarted = false;
-        var loadedWarmupScene = _warmupSceneLoadedByEnvironment;
-
-        if (_assetWarmupComplete && _warmupSceneLoadedByEnvironment)
-        {
-            UnloadWarmupScene();
-        }
-
-        if (_assetWarmupFailed)
-        {
-            _nextAssetWarmupAttemptTime = Time.unscaledTime + AssetWarmupRetryIntervalSeconds;
-        }
-
-        Debug.Log(
-            "[NOVR] Native menu environment Encyclopedia scene warmup finished: " +
-            $"water={HasGameWaterObjects()}, cloudPlane={_cloudPlane != null}, sceneLoadedByEnvironment={loadedWarmupScene}.");
+        _environmentRoot = null;
+        _visualRoot = null;
+        _shipRoot = null;
+        _previewUnit = null;
+        _waterPlane = null;
+        _spawnAttempted = false;
     }
 
-    private void MarkAssetWarmupFailed(string message)
+    private void ResetSceneScopedRenderingState()
     {
-        _assetWarmupStarted = false;
-        _assetWarmupFailed = true;
-        _nextAssetWarmupAttemptTime = Time.unscaledTime + AssetWarmupRetryIntervalSeconds;
-        Debug.LogWarning($"[NOVR] Native menu environment {message} Retrying.");
+        _postProcessingVolume = null;
+        _environmentCamera = null;
+        _environmentCameraSettingsCaptured = false;
+        _environmentRenderSettingsApplied = false;
+        _renderSettingsCaptured = false;
     }
 
-    private static Scene FindLoadedScene(string scenePath, string sceneName)
+    private static Scene FindLoadedSceneByName(string sceneName)
     {
         for (var index = 0; index < SceneManager.sceneCount; index++)
         {
             var scene = SceneManager.GetSceneAt(index);
-            if (string.Equals(scene.path, scenePath, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(scene.name, sceneName, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(scene.name, sceneName, StringComparison.OrdinalIgnoreCase))
             {
                 return scene;
             }
@@ -279,41 +307,15 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         return default;
     }
 
-    private void UnloadWarmupScene()
-    {
-        if (!_warmupSceneLoadedByEnvironment || !_warmupScene.IsValid() || !_warmupScene.isLoaded) return;
-
-        SceneManager.UnloadSceneAsync(_warmupScene);
-        _warmupScene = default;
-        _warmupSceneLoadedByEnvironment = false;
-    }
-
-    private static void DisableWarmupSceneRoots(Scene scene, bool stripWeatherBehaviours)
-    {
-        if (!scene.IsValid() || !scene.isLoaded) return;
-
-        var roots = scene.GetRootGameObjects();
-        for (var index = 0; index < roots.Length; index++)
-        {
-            var root = roots[index];
-            if (root != null)
-            {
-                if (stripWeatherBehaviours)
-                {
-                    StripCloudPlaneGameplayComponents(root);
-                }
-
-                root.SetActive(false);
-            }
-        }
-    }
-
     private void EnsureRoot()
     {
         if (_environmentRoot != null) return;
 
         _environmentRoot = new GameObject(EnvironmentRootName);
-        DontDestroyOnLoad(_environmentRoot);
+        if (_environmentScene.IsValid() && _environmentScene.isLoaded)
+        {
+            SceneManager.MoveGameObjectToScene(_environmentRoot, _environmentScene);
+        }
 
         var visualRoot = new GameObject(VisualRootName);
         visualRoot.transform.SetParent(_environmentRoot.transform, false);
@@ -322,473 +324,163 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         Debug.Log("[NOVR] Native menu environment root created.");
     }
 
-    private void EnsureGameWaterObjects()
+    private void EnsureSimpleWaterPlane()
     {
-        if (_visualRoot == null || HasGameWaterObjects()) return;
+        if (_visualRoot == null || _waterPlane != null) return;
 
-        var backdropSource = FindWaterObjectSource(BackdropWaterName);
-        if (backdropSource == null) return;
+        _waterPlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        _waterPlane.name = SimpleWaterPlaneName;
+        _waterPlane.transform.SetParent(_visualRoot, false);
+        _waterPlane.transform.localPosition = SimpleWaterPlaneLocalPosition;
+        _waterPlane.transform.localRotation = Quaternion.identity;
+        _waterPlane.transform.localScale = SimpleWaterPlaneLocalScale;
+        LayerHelper.SetLayerRecursive(_waterPlane.transform, LayerHelper.GetVrUiLayer());
 
-        _waterBackdrop = CloneGameWaterObject(backdropSource, MenuBackdropWaterName, WaterLocalPosition);
-        _waterUnderLayer = FindChildByName(_waterBackdrop.transform, WaterUnderLayerName)?.gameObject;
-
-        Debug.Log(
-            "[NOVR] Native menu environment cloned game water from " +
-            $"'{GetTransformPath(backdropSource.transform)}' underLayer={_waterUnderLayer != null}.");
-    }
-
-    private static GameObject? FindWaterObjectSource(string objectName)
-    {
-        var objects = Resources.FindObjectsOfTypeAll<GameObject>();
-
-        for (var index = 0; index < objects.Length; index++)
+        var collider = _waterPlane.GetComponent<Collider>();
+        if (collider != null)
         {
-            var gameObject = objects[index];
-            if (gameObject == null ||
-                IsUnderNativeMenuEnvironment(gameObject.transform) ||
-                !string.Equals(gameObject.name, objectName, StringComparison.OrdinalIgnoreCase))
+            collider.enabled = false;
+            Object.Destroy(collider);
+        }
+
+        var renderer = _waterPlane.GetComponent<MeshRenderer>();
+        if (renderer != null)
+        {
+            var waterMaterial = CreateSimpleWaterMaterial();
+            if (waterMaterial != null)
             {
-                continue;
+                renderer.sharedMaterial = waterMaterial;
+            }
+            else
+            {
+                renderer.enabled = false;
             }
 
-            if (string.Equals(gameObject.scene.name, EncyclopediaSceneName, StringComparison.OrdinalIgnoreCase))
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        Debug.Log("[NOVR] Native menu environment created simple water plane.");
+    }
+
+    private Material? CreateSimpleWaterMaterial()
+    {
+        if (_waterMaterial != null) return _waterMaterial;
+
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ??
+                     Shader.Find("Universal Render Pipeline/Unlit") ??
+                     Shader.Find("Standard") ??
+                     Shader.Find("Sprites/Default");
+        if (shader == null)
+        {
+            Debug.LogWarning("[NOVR] Native menu environment could not find a shader for the simple water plane.");
+            return null;
+        }
+
+        var material = new Material(shader)
+        {
+            name = "NOVR Menu Environment Water"
+        };
+
+        var texture = CreateSimpleWaterTexture();
+        SetMaterialTexture(material, texture);
+        SetMaterialColor(material, SimpleWaterBaseColor);
+        SetMaterialFloat(material, "_Smoothness", 0.72f);
+        SetMaterialFloat(material, "_Metallic", 0f);
+        SetMaterialTextureScale(material, new Vector2(280f, 280f));
+
+        _waterMaterial = material;
+        _waterTexture = texture;
+        return material;
+    }
+
+    private static Texture2D CreateSimpleWaterTexture()
+    {
+        const int size = 128;
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, true)
+        {
+            name = "NOVR Menu Environment Water Texture",
+            wrapMode = TextureWrapMode.Repeat,
+            filterMode = FilterMode.Trilinear,
+            anisoLevel = 4
+        };
+
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
             {
-                return gameObject;
+                var waveA = Mathf.Sin((x + y * 0.55f) * 0.22f);
+                var waveB = Mathf.Sin((x * -0.35f + y) * 0.15f);
+                var ripple = Mathf.PerlinNoise(x * 0.075f, y * 0.075f);
+                var t = Mathf.Clamp01(0.48f + waveA * 0.10f + waveB * 0.06f + (ripple - 0.5f) * 0.16f);
+                texture.SetPixel(x, y, Color.Lerp(SimpleWaterBaseColor, SimpleWaterHighlightColor, t));
             }
         }
 
-        return null;
+        texture.Apply(true, true);
+        return texture;
     }
 
-    private GameObject CloneGameWaterObject(GameObject source, string name, Vector3 localPosition)
+    private static void SetMaterialTexture(Material material, Texture texture)
     {
-        var clone = Object.Instantiate(source);
-        clone.name = name;
-        clone.SetActive(false);
-        clone.transform.SetParent(_visualRoot, false);
-        clone.transform.localPosition = localPosition;
-        clone.transform.localRotation = source.transform.localRotation;
-        clone.transform.localScale = source.transform.localScale;
-
-        PrepareGameWaterObject(clone);
-        clone.SetActive(true);
-        PrepareGameWaterObject(clone);
-        LogWaterObjectState(clone);
-
-        return clone;
-    }
-
-    private static void PrepareGameWaterObject(GameObject root)
-    {
-        var colliders = root.GetComponentsInChildren<Collider>(true);
-        for (var index = 0; index < colliders.Length; index++)
+        if (material.HasProperty("_BaseMap"))
         {
-            var collider = colliders[index];
-            if (collider != null)
-            {
-                collider.enabled = false;
-            }
+            material.SetTexture("_BaseMap", texture);
         }
 
-        var cameras = root.GetComponentsInChildren<Camera>(true);
-        for (var index = 0; index < cameras.Length; index++)
+        if (material.HasProperty("_MainTex"))
         {
-            var camera = cameras[index];
-            if (camera != null)
-            {
-                camera.enabled = false;
-            }
-        }
-
-        var renderers = root.GetComponentsInChildren<Renderer>(true);
-        for (var index = 0; index < renderers.Length; index++)
-        {
-            var renderer = renderers[index];
-            if (renderer == null) continue;
-
-            EnsureUniqueWaterMaterials(renderer);
-            renderer.enabled = !IsWaterUnderLayer(renderer.transform);
-            renderer.forceRenderingOff = false;
-        }
-
-        SyncWaterMaterialOriginOffset(root);
-    }
-
-    private static bool IsWaterUnderLayer(Transform transform)
-    {
-        while (transform != null)
-        {
-            if (string.Equals(transform.name, WaterUnderLayerName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            transform = transform.parent;
-        }
-
-        return false;
-    }
-
-    private static void EnsureUniqueWaterMaterials(Renderer renderer)
-    {
-        var materials = renderer.sharedMaterials;
-        var changed = false;
-
-        for (var index = 0; index < materials.Length; index++)
-        {
-            var material = materials[index];
-            if (material == null || material.name.EndsWith(" NOVR", StringComparison.Ordinal)) continue;
-
-            materials[index] = new Material(material)
-            {
-                name = $"{material.name} NOVR"
-            };
-            changed = true;
-        }
-
-        if (changed)
-        {
-            renderer.sharedMaterials = materials;
+            material.SetTexture("_MainTex", texture);
         }
     }
 
-    private static void SyncWaterMaterialOriginOffset(GameObject root)
+    private static void SetMaterialTextureScale(Material material, Vector2 scale)
     {
-        var localPosition = root.transform.localPosition;
-        var originOffset = new Vector4(-localPosition.x, -localPosition.z, 0f, 0f);
-
-        var renderers = root.GetComponentsInChildren<Renderer>(true);
-        for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+        if (material.HasProperty("_BaseMap"))
         {
-            var renderer = renderers[rendererIndex];
-            if (renderer == null) continue;
+            material.SetTextureScale("_BaseMap", scale);
+        }
 
-            var materials = renderer.sharedMaterials;
-            for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-            {
-                var material = materials[materialIndex];
-                if (material == null || !material.HasProperty("_OriginOffset")) continue;
-
-                material.SetVector("_OriginOffset", originOffset);
-            }
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTextureScale("_MainTex", scale);
         }
     }
 
-    private static void LogWaterObjectState(GameObject root)
+    private static void SetMaterialColor(Material material, Color color)
     {
-        var builder = new System.Text.StringBuilder();
-        builder.Append("[NOVR] Native menu environment water clone state:");
-
-        var renderers = root.GetComponentsInChildren<Renderer>(true);
-        for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
-        {
-            var renderer = renderers[rendererIndex];
-            if (renderer == null) continue;
-
-            builder
-                .AppendLine()
-                .Append("  renderer=")
-                .Append(GetTransformPath(renderer.transform))
-                .Append(" layer=")
-                .Append(renderer.gameObject.layer)
-                .Append(" enabled=")
-                .Append(renderer.enabled);
-
-            var materials = renderer.sharedMaterials;
-            for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-            {
-                var material = materials[materialIndex];
-                if (material == null) continue;
-
-                builder
-                    .AppendLine()
-                    .Append("    material=")
-                    .Append(material.name)
-                    .Append(" shader=")
-                    .Append(material.shader != null ? material.shader.name : "null")
-                    .Append(" queue=")
-                    .Append(material.renderQueue);
-            }
-        }
-
-        Debug.Log(builder.ToString());
-    }
-
-    private bool HasGameWaterObjects()
-    {
-        return _waterBackdrop != null;
-    }
-
-    private void EnsureCloudPlane()
-    {
-        if (_visualRoot == null || _cloudPlane != null) return;
-
-        var cloudSource = FindCloudPlaneSource();
-        if (cloudSource == null) return;
-
-        _cloudPlane = Object.Instantiate(cloudSource);
-        _cloudPlane.name = MenuCloudPlaneName;
-        _cloudPlane.SetActive(false);
-        _cloudPlane.transform.SetParent(_visualRoot, false);
-        _cloudPlane.transform.localPosition = CloudPlaneLocalPosition;
-        _cloudPlane.transform.localRotation = Quaternion.identity;
-        _cloudPlane.transform.localScale = CloudPlaneLocalScale;
-
-        PrepareCloudPlane(_cloudPlane);
-        _cloudPlane.AddComponent<MenuEnvironmentCloudWind>();
-        _cloudPlane.SetActive(true);
-        PrepareCloudPlane(_cloudPlane);
-
-        Debug.Log($"[NOVR] Native menu environment cloned cloud plane from '{GetTransformPath(cloudSource.transform)}'.");
-    }
-
-    private static GameObject? FindCloudPlaneSource()
-    {
-        var objects = Resources.FindObjectsOfTypeAll<GameObject>();
-        GameObject? fallback = null;
-
-        for (var index = 0; index < objects.Length; index++)
-        {
-            var gameObject = objects[index];
-            if (gameObject == null ||
-                !string.Equals(gameObject.name, CloudPlaneName, StringComparison.OrdinalIgnoreCase) ||
-                IsUnderNativeMenuEnvironment(gameObject.transform))
-            {
-                continue;
-            }
-
-            if (string.Equals(gameObject.scene.name, "Encyclopedia", StringComparison.OrdinalIgnoreCase))
-            {
-                return gameObject;
-            }
-
-            fallback ??= gameObject;
-        }
-
-        return fallback ?? FindResourceGameObjectByName(CloudPlaneName);
-    }
-
-    private static void PrepareCloudPlane(GameObject root)
-    {
-        StripCloudPlaneGameplayComponents(root);
-        LayerHelper.SetLayerRecursive(root.transform, LayerHelper.GetVrUiLayer());
-        SetMatchingChildrenActive(root.transform, static transform => string.Equals(transform.name, "lightning", StringComparison.OrdinalIgnoreCase), false);
-        ApplyCloudMaterialOverrides(root);
-        ApplyCloudParticleOverrides(root);
-
-        var renderers = root.GetComponentsInChildren<Renderer>(true);
-        for (var index = 0; index < renderers.Length; index++)
-        {
-            var renderer = renderers[index];
-            if (renderer != null)
-            {
-                renderer.enabled = true;
-            }
-        }
-
-        var particleSystems = root.GetComponentsInChildren<ParticleSystem>(true);
-        for (var index = 0; index < particleSystems.Length; index++)
-        {
-            var particleSystem = particleSystems[index];
-            if (particleSystem == null ||
-                !particleSystem.gameObject.activeInHierarchy ||
-                ShouldKeepCloudParticleSystemStopped(particleSystem))
-            {
-                continue;
-            }
-
-            particleSystem.Play(true);
-        }
-    }
-
-    private static void ApplyCloudParticleOverrides(GameObject root)
-    {
-        var particleSystems = root.GetComponentsInChildren<ParticleSystem>(true);
-        for (var index = 0; index < particleSystems.Length; index++)
-        {
-            var particleSystem = particleSystems[index];
-            if (particleSystem == null) continue;
-
-            if (IsCloudPlaneParticleSystem(root, particleSystem))
-            {
-                ConfigureCloudLayerParticles(particleSystem);
-                continue;
-            }
-
-            if (string.Equals(particleSystem.gameObject.name, "distantClouds", StringComparison.OrdinalIgnoreCase))
-            {
-                ConfigureDistantCloudParticles(particleSystem);
-                continue;
-            }
-
-            if (ShouldKeepCloudParticleSystemStopped(particleSystem))
-            {
-                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                particleSystem.gameObject.SetActive(false);
-            }
-        }
-    }
-
-    private static bool IsCloudPlaneParticleSystem(GameObject root, ParticleSystem particleSystem)
-    {
-        return particleSystem.gameObject == root ||
-               string.Equals(particleSystem.gameObject.name, CloudPlaneName, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(particleSystem.gameObject.name, MenuCloudPlaneName, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool ShouldKeepCloudParticleSystemStopped(ParticleSystem particleSystem)
-    {
-        var name = particleSystem.gameObject.name;
-        return name.IndexOf("flyThrough", StringComparison.OrdinalIgnoreCase) >= 0 ||
-               string.Equals(name, "lightning", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static void ConfigureCloudLayerParticles(ParticleSystem particleSystem)
-    {
-        var main = particleSystem.main;
-        main.duration = 1f;
-        main.loop = false;
-        main.prewarm = false;
-        main.startDelay = new ParticleSystem.MinMaxCurve(0f);
-        main.startLifetime = new ParticleSystem.MinMaxCurve(15.00058f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0f);
-        main.startSize = new ParticleSystem.MinMaxCurve(479.8216f);
-        main.startRotation = new ParticleSystem.MinMaxCurve(0f);
-        main.startColor = new ParticleSystem.MinMaxGradient(CloudLayerParticleColor);
-        main.maxParticles = 3000;
-
-        var emission = particleSystem.emission;
-        emission.enabled = false;
-        emission.rateOverTime = new ParticleSystem.MinMaxCurve(1f);
-
-        var shape = particleSystem.shape;
-        shape.enabled = false;
-        shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.radius = 1f;
-        shape.angle = 25f;
-        shape.arc = 360f;
-        shape.scale = Vector3.one;
-        shape.position = Vector3.zero;
-        shape.rotation = Vector3.zero;
-    }
-
-    private static void ConfigureDistantCloudParticles(ParticleSystem particleSystem)
-    {
-        var main = particleSystem.main;
-        main.duration = 20f;
-        main.loop = true;
-        main.prewarm = false;
-        main.startDelay = new ParticleSystem.MinMaxCurve(0f);
-        main.startLifetime = new ParticleSystem.MinMaxCurve(20f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(5f);
-        main.startSize = new ParticleSystem.MinMaxCurve(540f, 810f);
-        main.startRotation = new ParticleSystem.MinMaxCurve(0f);
-        main.startColor = new ParticleSystem.MinMaxGradient(DistantCloudParticleColor);
-        main.maxParticles = 300;
-
-        var emission = particleSystem.emission;
-        emission.enabled = true;
-        emission.rateOverTime = new ParticleSystem.MinMaxCurve(25f);
-
-        var shape = particleSystem.shape;
-        shape.enabled = true;
-        shape.shapeType = ParticleSystemShapeType.Circle;
-        shape.radius = 40000f;
-        shape.angle = 25f;
-        shape.arc = 360f;
-        shape.scale = Vector3.one;
-        shape.position = Vector3.zero;
-        shape.rotation = new Vector3(90f, 0f, 0f);
-    }
-
-    private static void ApplyCloudMaterialOverrides(GameObject root)
-    {
-        var renderers = root.GetComponentsInChildren<Renderer>(true);
-        for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
-        {
-            var renderer = renderers[rendererIndex];
-            if (renderer == null) continue;
-
-            var materials = renderer.sharedMaterials;
-            var changed = false;
-
-            for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-            {
-                var material = materials[materialIndex];
-                if (material == null || !IsCloudMaterial(renderer, material)) continue;
-
-                if (!material.name.EndsWith(" NOVR", StringComparison.Ordinal))
-                {
-                    material = new Material(material)
-                    {
-                        name = $"{material.name} NOVR"
-                    };
-                    materials[materialIndex] = material;
-                    changed = true;
-                }
-
-                SetCloudMaterialColor(material);
-            }
-
-            if (changed)
-            {
-                renderer.sharedMaterials = materials;
-            }
-        }
-    }
-
-    private static bool IsCloudMaterial(Renderer renderer, Material material)
-    {
-        return ContainsCloudToken(renderer.gameObject.name) ||
-               ContainsCloudToken(material.name) ||
-               ContainsCloudToken(material.shader.name);
-    }
-
-    private static bool ContainsCloudToken(string value)
-    {
-        return value.IndexOf("cloud", StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    private static void SetCloudMaterialColor(Material material)
-    {
-        if (material.HasProperty("_CloudColor"))
-        {
-            material.SetColor("_CloudColor", CloudMaterialColor);
-        }
-
         if (material.HasProperty("_BaseColor"))
         {
-            material.SetColor("_BaseColor", CloudMaterialColor);
+            material.SetColor("_BaseColor", color);
         }
 
         if (material.HasProperty("_Color"))
         {
-            material.SetColor("_Color", CloudMaterialColor);
+            material.SetColor("_Color", color);
         }
     }
 
-    private static int StripCloudPlaneGameplayComponents(GameObject root)
+    private static void SetMaterialFloat(Material material, string propertyName, float value)
     {
-        var stripped = 0;
-        var components = root.GetComponentsInChildren<MonoBehaviour>(true);
-
-        for (var index = 0; index < components.Length; index++)
+        if (material.HasProperty(propertyName))
         {
-            var component = components[index];
-            if (component == null) continue;
+            material.SetFloat(propertyName, value);
+        }
+    }
 
-            if (!string.Equals(component.GetType().Name, "CloudLayer", StringComparison.Ordinal)) continue;
-
-            Object.DestroyImmediate(component);
-            stripped++;
+    private void DestroySimpleWaterResources()
+    {
+        if (_waterMaterial != null)
+        {
+            Object.Destroy(_waterMaterial);
+            _waterMaterial = null;
         }
 
-        if (stripped > 0)
+        if (_waterTexture != null)
         {
-            Debug.Log($"[NOVR] Native menu environment stripped {stripped} cloud gameplay component(s) from '{GetTransformPath(root.transform)}'.");
+            Object.Destroy(_waterTexture);
+            _waterTexture = null;
         }
-
-        return stripped;
     }
 
     private void PlaceRoot(Transform menuTransform)
@@ -1145,18 +837,62 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
 
     private void RestoreEnvironmentRenderSettings()
     {
-        if (!_environmentRenderSettingsApplied || !_renderSettingsCaptured) return;
+        if (!_environmentRenderSettingsApplied && _postProcessingVolume == null && !_renderSettingsCaptured)
+        {
+            return;
+        }
 
-        RenderSettings.skybox = _originalSkybox;
-        RenderSettings.ambientMode = _originalAmbientMode;
-        RenderSettings.ambientLight = _originalAmbientLight;
-        RenderSettings.fog = _originalFog;
-        RenderSettings.fogColor = _originalFogColor;
-        RenderSettings.fogDensity = _originalFogDensity;
-        RenderSettings.fogMode = _originalFogMode;
-        _environmentRenderSettingsApplied = false;
         RemoveEnvironmentPostProcessing();
-        Debug.Log("[NOVR] Native menu environment restored skybox render settings.");
+        if (_renderSettingsCaptured)
+        {
+            RestoreRenderSettings(_originalRenderSettings);
+            _renderSettingsCaptured = false;
+        }
+
+        _environmentRenderSettingsApplied = false;
+        Debug.Log("[NOVR] Native menu environment restored scene render settings.");
+    }
+
+    private void CaptureRenderSettings()
+    {
+        if (_renderSettingsCaptured) return;
+
+        _originalRenderSettings = new RenderSettingsSnapshot
+        {
+            Skybox = RenderSettings.skybox,
+            AmbientMode = RenderSettings.ambientMode,
+            AmbientLight = RenderSettings.ambientLight,
+            AmbientSkyColor = RenderSettings.ambientSkyColor,
+            AmbientEquatorColor = RenderSettings.ambientEquatorColor,
+            AmbientGroundColor = RenderSettings.ambientGroundColor,
+            AmbientIntensity = RenderSettings.ambientIntensity,
+            Fog = RenderSettings.fog,
+            FogMode = RenderSettings.fogMode,
+            FogColor = RenderSettings.fogColor,
+            FogDensity = RenderSettings.fogDensity,
+            FogStartDistance = RenderSettings.fogStartDistance,
+            FogEndDistance = RenderSettings.fogEndDistance,
+            ReflectionIntensity = RenderSettings.reflectionIntensity,
+        };
+        _renderSettingsCaptured = true;
+    }
+
+    private static void RestoreRenderSettings(RenderSettingsSnapshot snapshot)
+    {
+        RenderSettings.skybox = snapshot.Skybox;
+        RenderSettings.ambientMode = snapshot.AmbientMode;
+        RenderSettings.ambientLight = snapshot.AmbientLight;
+        RenderSettings.ambientSkyColor = snapshot.AmbientSkyColor;
+        RenderSettings.ambientEquatorColor = snapshot.AmbientEquatorColor;
+        RenderSettings.ambientGroundColor = snapshot.AmbientGroundColor;
+        RenderSettings.ambientIntensity = snapshot.AmbientIntensity;
+        RenderSettings.fog = snapshot.Fog;
+        RenderSettings.fogMode = snapshot.FogMode;
+        RenderSettings.fogColor = snapshot.FogColor;
+        RenderSettings.fogDensity = snapshot.FogDensity;
+        RenderSettings.fogStartDistance = snapshot.FogStartDistance;
+        RenderSettings.fogEndDistance = snapshot.FogEndDistance;
+        RenderSettings.reflectionIntensity = snapshot.ReflectionIntensity;
     }
 
     private void ApplyEnvironmentPostProcessing()
@@ -1164,7 +900,15 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         if (_postProcessingVolume != null) return;
 
         var go = new GameObject("NOVR Menu Post Processing");
-        DontDestroyOnLoad(go);
+        if (_environmentScene.IsValid() && _environmentScene.isLoaded)
+        {
+            SceneManager.MoveGameObjectToScene(go, _environmentScene);
+        }
+
+        if (_environmentRoot != null)
+        {
+            go.transform.SetParent(_environmentRoot.transform, false);
+        }
 
         _postProcessingVolume = go.AddComponent<Volume>();
         _postProcessingVolume.isGlobal      = true;
@@ -1206,20 +950,6 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         Object.Destroy(_postProcessingVolume.gameObject);
         _postProcessingVolume = null;
         Debug.Log("[NOVR] Native menu environment removed post-processing volume.");
-    }
-
-    private void CaptureRenderSettings()
-    {
-        if (_renderSettingsCaptured) return;
-
-        _originalSkybox = RenderSettings.skybox;
-        _originalAmbientMode = RenderSettings.ambientMode;
-        _originalAmbientLight = RenderSettings.ambientLight;
-        _originalFog = RenderSettings.fog;
-        _originalFogColor = RenderSettings.fogColor;
-        _originalFogDensity = RenderSettings.fogDensity;
-        _originalFogMode = RenderSettings.fogMode;
-        _renderSettingsCaptured = true;
     }
 
     private void ApplyEnvironmentCameraSettings()
@@ -1323,15 +1053,6 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         return inactiveMatch;
     }
 
-    private void RefreshMissingAssetCachesIfNeeded()
-    {
-        if (HasGameWaterObjects() && _cloudPlane != null) return;
-        if (Time.unscaledTime < _nextMissingAssetRetryTime) return;
-
-        _nextMissingAssetRetryTime = Time.unscaledTime + MissingAssetRetryIntervalSeconds;
-        _resourceGameObjectCache = null;
-    }
-
     private static Material? FindSkyboxMaterial()
     {
         var defaultSkybox = FindMaterialByNormalizedName(DefaultSkyboxMaterialName);
@@ -1383,37 +1104,6 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         }
 
         return null;
-    }
-
-    private static GameObject? FindResourceGameObjectByName(string gameObjectName)
-    {
-        var resourceGameObjects = GetResourceGameObjectCache();
-        for (var index = 0; index < resourceGameObjects.Length; index++)
-        {
-            var gameObject = resourceGameObjects[index];
-            if (gameObject == null) continue;
-
-            if (string.Equals(gameObject.name, gameObjectName, StringComparison.OrdinalIgnoreCase))
-            {
-                return gameObject;
-            }
-        }
-
-        return null;
-    }
-
-    private static GameObject[] GetResourceGameObjectCache()
-    {
-        if (_resourceGameObjectCache != null) return _resourceGameObjectCache;
-
-        _resourceGameObjectCache = Resources.LoadAll<GameObject>(string.Empty);
-        if (_resourceGameObjectCache.Length != _lastLoggedResourceGameObjectCount)
-        {
-            _lastLoggedResourceGameObjectCount = _resourceGameObjectCache.Length;
-            Debug.Log($"[NOVR] Native menu environment scanned {_resourceGameObjectCache.Length} resource game objects.");
-        }
-
-        return _resourceGameObjectCache;
     }
 
     private static string NormalizeUnityObjectName(string name)
@@ -1630,22 +1320,6 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     private static bool ContainsIgnoreCase(string text, string value)
     {
         return text.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    private static bool IsUnderNativeMenuEnvironment(Transform transform)
-    {
-        var current = transform;
-        while (current != null)
-        {
-            if (string.Equals(current.name, EnvironmentRootName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            current = current.parent;
-        }
-
-        return false;
     }
 
     private static int GetTransformDepth(Transform transform)
