@@ -51,6 +51,7 @@ internal static class DynamicMapRadarVisualizationRotationSafePatch
             var iconLayer = dynamicMap.iconLayer.transform;
             var emitterMapPosition = emitter.GlobalPosition().AsVector3() * dynamicMap.mapDisplayFactor;
             var emitterLocalPosition = new Vector3(emitterMapPosition.x, emitterMapPosition.z, 0.0f);
+            vectorImage.raycastTarget = false;
             vectorImage.transform.localPosition = emitterLocalPosition;
 
             if (DynamicMap.TryGetMapIcon(combatHud.aircraft, out var aircraftIcon))
