@@ -17,19 +17,37 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     private const string VisualRootName = "Visuals";
     private const string PreviewUnitName = "AttackHelo1";
     private const string PreviewShipName = "Frigate1";
-    private const string NavLightStarburstTextureName = "starburst";
     private const string SimpleWaterPlaneName = "NOVR Menu Environment Water Plane";
+    private const string CloudPlaneName = "cloudPlane";
+    private const string MenuCloudPlaneName = "NOVR Menu Environment Cloud Plane";
+    private const string ShipWakeRootName = "wakefoam";
+    private const string ShipHangarDoorName = "frigate1_hangarDoor";
     private const string MenuCameraName = "Menu Camera";
     private const string DefaultSkyboxMaterialName = "Default-Skybox";
     private const string EncyclopediaSceneName = "Encyclopedia";
     private const float EnvironmentCameraFarClipPlane = 80000f;
     private const float MenuEnvironmentFogDensity = 0.00105f;
+    private const float ShipWakeFlowSpeed = 40f;
+    private const float ShipHangarDoorOpenDelaySeconds = 3.0f;
+    private const float ShipHangarDoorOpenDurationSeconds = 4.0f;
     private static readonly Vector3 MenuEnvironmentWorldAnchor = new(-23.8808f, 2.774f, -821.3446f);
     private static readonly Vector3 SimpleWaterPlaneLocalPosition = new(0f, -10f, -9.66f);
     private static readonly Vector3 SimpleWaterPlaneLocalScale = new(9000f, 1f, 9000f);
+    private static readonly Vector3 CloudPlaneLocalPosition = new(0f, 500f, 0f);
+    private static readonly Vector3 CloudPlaneLocalScale = new(1f, 10f, 1f);
+    private static readonly Vector3 ShipHangarDoorOpenLocalOffset = new(0f, 5f, 2f);
     private static readonly Color MenuEnvironmentFogColor = new(0.52f, 0.68f, 0.80f, 1f);
+    private static readonly Color CloudMaterialColor = new(3.75f, 3.78f, 1.72f, 0.98f);
+    private static readonly Color CloudLayerParticleColor = new(1f, 1f, 1f, 0.5f);
+    private static readonly Color DistantCloudParticleColor = Color.white;
     private static readonly Color SimpleWaterBaseColor = new(0.12f, 0.32f, 0.42f, 1f);
     private static readonly Color SimpleWaterHighlightColor = new(0.28f, 0.58f, 0.70f, 1f);
+    private static readonly HashSet<string> HiddenShipPreviewChildNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "frigate1_hull_port",
+        "frigate1_hull_starboard",
+        "frigate1_hull_F",
+    };
     private static readonly Vector3 ShipHangarSourceAnchor = new(0f, 3.8098f, -22.1115f);
     private static readonly Vector3 ShipHangarTargetAnchor = new(0f, 1.25f, 0.45f);
     private static readonly Vector3 PreviewLocalOffset = new(23.8808f, -2.774f, 821.3446f);
@@ -76,6 +94,7 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     private GameObject? _shipRoot;
     private GameObject? _previewUnit;
     private GameObject? _waterPlane;
+    private GameObject? _cloudPlane;
     private Material? _waterMaterial;
     private Texture2D? _waterTexture;
     private Camera? _environmentCamera;
@@ -93,6 +112,7 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     private RenderSettingsSnapshot _originalRenderSettings;
     private bool _renderSettingsCaptured;
     private bool _spawnAttempted;
+    private bool _loggedWarmupDelay;
 
     private struct RenderSettingsSnapshot
     {
@@ -121,6 +141,21 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
             return;
         }
 
+        var assetCache = NativeMenuEnvironmentAssetCache.Instance;
+        assetCache?.EnsureMenuWarmupStarted();
+        if (assetCache?.ShouldDelayMenuEnvironment == true)
+        {
+            if (!_loggedWarmupDelay)
+            {
+                Debug.Log("[NOVR] Native menu environment waiting for hidden Encyclopedia asset warmup.");
+                _loggedWarmupDelay = true;
+            }
+
+            return;
+        }
+
+        _loggedWarmupDelay = false;
+
         if (!EnsureEnvironmentScene())
         {
             return;
@@ -129,13 +164,13 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         EnsureRoot();
         PlaceRoot(menuTransform);
         EnsureSimpleWaterPlane();
+        EnsureCloudPlane();
         ApplyEnvironmentRenderSettings();
         ApplyEnvironmentCameraSettings();
         EnsurePreviewScene();
         SetVisible(true);
         ApplyShipVisualOverrides();
         ApplyAircraftVisualOverrides();
-        RestorePreviewEffectObjects();
     }
 
     private void OnEnable()
@@ -208,6 +243,13 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
     {
         if (!string.Equals(scene.name, EnvironmentSceneName, StringComparison.OrdinalIgnoreCase)) return;
 
+        if (_environmentRoot != null)
+        {
+            _environmentScene = default;
+            Debug.Log($"[NOVR] Native menu environment preserved root after scene '{EnvironmentSceneName}' unloaded during menu scene transition.");
+            return;
+        }
+
         ClearEnvironmentSceneObjectReferences();
         ResetSceneScopedRenderingState();
         _environmentScene = default;
@@ -216,6 +258,11 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
 
     private bool EnsureEnvironmentScene()
     {
+        if (_environmentRoot != null)
+        {
+            return true;
+        }
+
         if (_environmentScene.IsValid() && _environmentScene.isLoaded)
         {
             ResetSceneObjectReferencesIfDestroyed();
@@ -281,6 +328,7 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         _shipRoot = null;
         _previewUnit = null;
         _waterPlane = null;
+        _cloudPlane = null;
         _spawnAttempted = false;
     }
 
@@ -316,6 +364,8 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         {
             SceneManager.MoveGameObjectToScene(_environmentRoot, _environmentScene);
         }
+
+        DontDestroyOnLoad(_environmentRoot);
 
         var visualRoot = new GameObject(VisualRootName);
         visualRoot.transform.SetParent(_environmentRoot.transform, false);
@@ -363,9 +413,47 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         Debug.Log("[NOVR] Native menu environment created simple water plane.");
     }
 
+    private void EnsureCloudPlane()
+    {
+        if (_visualRoot == null || _cloudPlane != null) return;
+
+        if (NativeMenuEnvironmentAssetCache.Instance?.TryCreateCloudPlane(out var cloudPlane) != true ||
+            cloudPlane == null)
+        {
+            return;
+        }
+
+        _cloudPlane = cloudPlane;
+        _cloudPlane.name = MenuCloudPlaneName;
+        _cloudPlane.SetActive(false);
+        _cloudPlane.transform.SetParent(_visualRoot, false);
+        _cloudPlane.transform.localPosition = CloudPlaneLocalPosition;
+        _cloudPlane.transform.localRotation = Quaternion.identity;
+        _cloudPlane.transform.localScale = CloudPlaneLocalScale;
+
+        PrepareCloudPlane(_cloudPlane);
+        if (_cloudPlane.GetComponent<MenuEnvironmentCloudWind>() == null)
+        {
+            _cloudPlane.AddComponent<MenuEnvironmentCloudWind>();
+        }
+
+        _cloudPlane.SetActive(true);
+        PrepareCloudPlane(_cloudPlane);
+
+        Debug.Log("[NOVR] Native menu environment cloned cached Encyclopedia cloud plane.");
+    }
+
     private Material? CreateSimpleWaterMaterial()
     {
         if (_waterMaterial != null) return _waterMaterial;
+
+        if (NativeMenuEnvironmentAssetCache.Instance?.TryCreateWaterMaterial(out var cachedWaterMaterial) == true &&
+            cachedWaterMaterial != null)
+        {
+            _waterMaterial = cachedWaterMaterial;
+            Debug.Log("[NOVR] Native menu environment using cached Encyclopedia water material.");
+            return cachedWaterMaterial;
+        }
 
         var shader = Shader.Find("Universal Render Pipeline/Lit") ??
                      Shader.Find("Universal Render Pipeline/Unlit") ??
@@ -483,6 +571,231 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         }
     }
 
+    private static void PrepareCloudPlane(GameObject root)
+    {
+        StripCloudPlaneGameplayComponents(root);
+        LayerHelper.SetLayerRecursive(root.transform, LayerHelper.GetVrUiLayer());
+        SetMatchingChildrenActive(root.transform, static transform => string.Equals(transform.name, "lightning", StringComparison.OrdinalIgnoreCase), false);
+        ApplyCloudMaterialOverrides(root);
+        ApplyCloudParticleOverrides(root);
+
+        var renderers = root.GetComponentsInChildren<Renderer>(true);
+        for (var index = 0; index < renderers.Length; index++)
+        {
+            var renderer = renderers[index];
+            if (renderer == null) continue;
+
+            renderer.enabled = true;
+            renderer.forceRenderingOff = false;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        var particleSystems = root.GetComponentsInChildren<ParticleSystem>(true);
+        for (var index = 0; index < particleSystems.Length; index++)
+        {
+            var particleSystem = particleSystems[index];
+            if (particleSystem == null ||
+                !particleSystem.gameObject.activeInHierarchy ||
+                ShouldKeepCloudParticleSystemStopped(particleSystem))
+            {
+                continue;
+            }
+
+            particleSystem.Play(true);
+        }
+    }
+
+    private static void ApplyCloudParticleOverrides(GameObject root)
+    {
+        var particleSystems = root.GetComponentsInChildren<ParticleSystem>(true);
+        for (var index = 0; index < particleSystems.Length; index++)
+        {
+            var particleSystem = particleSystems[index];
+            if (particleSystem == null) continue;
+
+            if (IsCloudPlaneParticleSystem(root, particleSystem))
+            {
+                ConfigureCloudLayerParticles(particleSystem);
+                continue;
+            }
+
+            if (string.Equals(particleSystem.gameObject.name, "distantClouds", StringComparison.OrdinalIgnoreCase))
+            {
+                ConfigureDistantCloudParticles(particleSystem);
+                continue;
+            }
+
+            if (ShouldKeepCloudParticleSystemStopped(particleSystem))
+            {
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                particleSystem.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private static bool IsCloudPlaneParticleSystem(GameObject root, ParticleSystem particleSystem)
+    {
+        return particleSystem.gameObject == root ||
+               string.Equals(particleSystem.gameObject.name, CloudPlaneName, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(particleSystem.gameObject.name, MenuCloudPlaneName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldKeepCloudParticleSystemStopped(ParticleSystem particleSystem)
+    {
+        var name = particleSystem.gameObject.name;
+        return name.IndexOf("flyThrough", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               string.Equals(name, "lightning", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void ConfigureCloudLayerParticles(ParticleSystem particleSystem)
+    {
+        var main = particleSystem.main;
+        main.duration = 1f;
+        main.loop = false;
+        main.prewarm = false;
+        main.startDelay = new ParticleSystem.MinMaxCurve(0f);
+        main.startLifetime = new ParticleSystem.MinMaxCurve(15.00058f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0f);
+        main.startSize = new ParticleSystem.MinMaxCurve(479.8216f);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f);
+        main.startColor = new ParticleSystem.MinMaxGradient(CloudLayerParticleColor);
+        main.maxParticles = 3000;
+
+        var emission = particleSystem.emission;
+        emission.enabled = false;
+        emission.rateOverTime = new ParticleSystem.MinMaxCurve(1f);
+
+        var shape = particleSystem.shape;
+        shape.enabled = false;
+        shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.radius = 1f;
+        shape.angle = 25f;
+        shape.arc = 360f;
+        shape.scale = Vector3.one;
+        shape.position = Vector3.zero;
+        shape.rotation = Vector3.zero;
+    }
+
+    private static void ConfigureDistantCloudParticles(ParticleSystem particleSystem)
+    {
+        var main = particleSystem.main;
+        main.duration = 20f;
+        main.loop = true;
+        main.prewarm = false;
+        main.startDelay = new ParticleSystem.MinMaxCurve(0f);
+        main.startLifetime = new ParticleSystem.MinMaxCurve(20f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(5f);
+        main.startSize = new ParticleSystem.MinMaxCurve(540f, 810f);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f);
+        main.startColor = new ParticleSystem.MinMaxGradient(DistantCloudParticleColor);
+        main.maxParticles = 300;
+
+        var emission = particleSystem.emission;
+        emission.enabled = true;
+        emission.rateOverTime = new ParticleSystem.MinMaxCurve(25f);
+
+        var shape = particleSystem.shape;
+        shape.enabled = true;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = 40000f;
+        shape.angle = 25f;
+        shape.arc = 360f;
+        shape.scale = Vector3.one;
+        shape.position = Vector3.zero;
+        shape.rotation = new Vector3(90f, 0f, 0f);
+    }
+
+    private static void ApplyCloudMaterialOverrides(GameObject root)
+    {
+        var renderers = root.GetComponentsInChildren<Renderer>(true);
+        for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+        {
+            var renderer = renderers[rendererIndex];
+            if (renderer == null) continue;
+
+            var materials = renderer.sharedMaterials;
+            var changed = false;
+
+            for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
+            {
+                var material = materials[materialIndex];
+                if (material == null || !IsCloudMaterial(renderer, material)) continue;
+
+                if (!material.name.EndsWith(" NOVR", StringComparison.Ordinal))
+                {
+                    material = new Material(material)
+                    {
+                        name = $"{material.name} NOVR"
+                    };
+                    materials[materialIndex] = material;
+                    changed = true;
+                }
+
+                SetCloudMaterialColor(material);
+            }
+
+            if (changed)
+            {
+                renderer.sharedMaterials = materials;
+            }
+        }
+    }
+
+    private static bool IsCloudMaterial(Renderer renderer, Material material)
+    {
+        return ContainsCloudToken(renderer.gameObject.name) ||
+               ContainsCloudToken(material.name) ||
+               (material.shader != null && ContainsCloudToken(material.shader.name));
+    }
+
+    private static bool ContainsCloudToken(string value)
+    {
+        return value.IndexOf("cloud", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void SetCloudMaterialColor(Material material)
+    {
+        if (material.HasProperty("_CloudColor"))
+        {
+            material.SetColor("_CloudColor", CloudMaterialColor);
+        }
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", CloudMaterialColor);
+        }
+
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor("_Color", CloudMaterialColor);
+        }
+    }
+
+    private static int StripCloudPlaneGameplayComponents(GameObject root)
+    {
+        var stripped = 0;
+        var components = root.GetComponentsInChildren<MonoBehaviour>(true);
+
+        for (var index = 0; index < components.Length; index++)
+        {
+            var component = components[index];
+            if (component == null) continue;
+
+            if (!string.Equals(component.GetType().Name, "CloudLayer", StringComparison.Ordinal)) continue;
+
+            Object.DestroyImmediate(component);
+            stripped++;
+        }
+
+        if (stripped > 0)
+        {
+            Debug.Log($"[NOVR] Native menu environment stripped {stripped} cloud gameplay component(s) from '{GetTransformPath(root.transform)}'.");
+        }
+
+        return stripped;
+    }
+
     private void PlaceRoot(Transform menuTransform)
     {
         if (_environmentRoot == null) return;
@@ -514,6 +827,7 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
             ApplyShipVisualOverrides();
             _shipRoot.SetActive(true);
             ApplyShipVisualOverrides();
+            ApplyShipWakeTuning();
 
             Debug.Log($"[NOVR] Native menu environment spawned preview ship prefab '{shipPrefab.name}' from Encyclopedia.");
         }
@@ -539,7 +853,6 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
         PreparePreviewObject(_previewUnit);
         _previewUnit.SetActive(true);
         ApplyAircraftVisualOverrides();
-        RestorePreviewEffectObjects();
 
         Debug.Log($"[NOVR] Native menu environment spawned preview aircraft prefab '{aircraftPrefab.name}' from Encyclopedia.");
     }
@@ -790,20 +1103,137 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
                fullName.StartsWith("Mirage.", StringComparison.Ordinal);
     }
 
-    private void RestorePreviewEffectObjects()
-    {
-        if (_previewUnit == null) return;
-
-        RestorePreviewEffectObject(_previewUnit, "navlight_effects_L");
-        RestorePreviewEffectObject(_previewUnit, "navlight_effects_R");
-        HideNavLightStarburstRenderers(_previewUnit);
-    }
-
     private void ApplyShipVisualOverrides()
     {
         if (_shipRoot == null) return;
 
         SetMatchingChildrenActive(_shipRoot.transform, IsShipPreviewHiddenChild, false);
+        EnsureShipHangarDoorAnimator();
+    }
+
+    private void EnsureShipHangarDoorAnimator()
+    {
+        if (_shipRoot == null) return;
+
+        var door = FindChildByName(_shipRoot.transform, ShipHangarDoorName);
+        if (door == null) return;
+
+        if (!door.gameObject.activeSelf)
+        {
+            door.gameObject.SetActive(true);
+        }
+
+        var renderers = door.GetComponentsInChildren<Renderer>(true);
+        for (var index = 0; index < renderers.Length; index++)
+        {
+            var renderer = renderers[index];
+            if (renderer == null) continue;
+
+            renderer.gameObject.SetActive(true);
+            renderer.enabled = true;
+            renderer.forceRenderingOff = false;
+        }
+
+        if (door.GetComponent<MenuEnvironmentHangarDoorAnimator>() != null) return;
+
+        door.gameObject
+            .AddComponent<MenuEnvironmentHangarDoorAnimator>()
+            .Configure(ShipHangarDoorOpenLocalOffset, ShipHangarDoorOpenDelaySeconds, ShipHangarDoorOpenDurationSeconds);
+    }
+
+    private void ApplyShipWakeTuning()
+    {
+        if (_shipRoot == null) return;
+
+        var wakeRoot = FindChildByName(_shipRoot.transform, ShipWakeRootName);
+        if (wakeRoot == null)
+        {
+            Debug.LogWarning("[NOVR] Native menu environment could not find preview ship wake effect root.");
+            return;
+        }
+
+        if (!wakeRoot.gameObject.activeSelf)
+        {
+            wakeRoot.gameObject.SetActive(true);
+        }
+
+        var flow = -_shipRoot.transform.forward * ShipWakeFlowSpeed;
+        var tunedParticles = 0;
+        var particleSystems = wakeRoot.GetComponentsInChildren<ParticleSystem>(true);
+        for (var index = 0; index < particleSystems.Length; index++)
+        {
+            var particleSystem = particleSystems[index];
+            if (particleSystem == null) continue;
+
+            if (!particleSystem.gameObject.activeSelf)
+            {
+                particleSystem.gameObject.SetActive(true);
+            }
+
+            ApplyShipWakeFlow(particleSystem, flow);
+            ApplyShipWakeParticleTuning(particleSystem);
+            particleSystem.Clear(true);
+            particleSystem.Play(true);
+            tunedParticles++;
+        }
+
+        Debug.Log($"[NOVR] Native menu environment tuned preview ship wake particles: count={tunedParticles}, flow={flow}.");
+    }
+
+    private static void ApplyShipWakeFlow(ParticleSystem particleSystem, Vector3 flow)
+    {
+        var inherit = particleSystem.inheritVelocity;
+        inherit.enabled = false;
+
+        var velocity = particleSystem.velocityOverLifetime;
+        velocity.enabled = true;
+        velocity.space = ParticleSystemSimulationSpace.World;
+        velocity.x = new ParticleSystem.MinMaxCurve(flow.x);
+        velocity.y = new ParticleSystem.MinMaxCurve(flow.y);
+        velocity.z = new ParticleSystem.MinMaxCurve(flow.z);
+
+        var limit = particleSystem.limitVelocityOverLifetime;
+        limit.enabled = false;
+    }
+
+    private static void ApplyShipWakeParticleTuning(ParticleSystem particleSystem)
+    {
+        var name = particleSystem.gameObject.name;
+        var main = particleSystem.main;
+        var emission = particleSystem.emission;
+
+        if (string.Equals(name, "wakefoam", StringComparison.Ordinal))
+        {
+            emission.rateOverTimeMultiplier = 18f;
+            main.startSizeMultiplier = 170f;
+            main.startLifetimeMultiplier = 255f;
+            main.maxParticles = 900;
+        }
+        else if (string.Equals(name, "bowFoam", StringComparison.Ordinal))
+        {
+            emission.rateOverTimeMultiplier = 0.5f;
+            main.startSizeMultiplier = 520f;
+            main.startLifetimeMultiplier = 8f;
+            main.maxParticles = 250;
+        }
+        else if (string.Equals(name, "thrusterSprayR", StringComparison.Ordinal))
+        {
+            emission.rateOverTimeMultiplier = 1f;
+            main.startSizeMultiplier = 4f;
+            main.startSpeedMultiplier = 28f;
+            main.startLifetimeMultiplier = 0.55f;
+            main.maxParticles = 35;
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.35f));
+        }
+        else if (string.Equals(name, "thrusterMistR", StringComparison.Ordinal))
+        {
+            emission.rateOverTimeMultiplier = 1f;
+            main.startSizeMultiplier = 7f;
+            main.startSpeedMultiplier = 24f;
+            main.startLifetimeMultiplier = 1.2f;
+            main.maxParticles = 45;
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.28f));
+        }
     }
 
     private void ApplyEnvironmentRenderSettings()
@@ -1122,7 +1552,7 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
 
     private static bool IsShipPreviewHiddenChild(Transform transform)
     {
-        return ContainsIgnoreCase(transform.name, "hangarDoor") ||
+        return HiddenShipPreviewChildNames.Contains(transform.name) ||
                ContainsIgnoreCase(transform.name, "lod");
     }
 
@@ -1139,6 +1569,12 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
                string.Equals(transform.name, "contactSparks", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(transform.name, "helmetCamPoint (1)", StringComparison.OrdinalIgnoreCase) ||
                ContainsIgnoreCase(transform.name, "lod") ||
+               string.Equals(transform.name, "navlight_L", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(transform.name, "navlight_R", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(transform.name, "navlight_effects_L", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(transform.name, "navlight_effects_R", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(transform.name, "spotlight_L", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(transform.name, "spotlight_R", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(transform.name, "joystick", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(transform.name, "collective", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(transform.name, "ladder", StringComparison.OrdinalIgnoreCase);
@@ -1156,136 +1592,6 @@ public sealed class NativeMenuEnvironment : MonoBehaviour
                 child.gameObject.SetActive(active);
             }
         }
-    }
-
-    private static void RestorePreviewEffectObject(GameObject root, string objectName)
-    {
-        var target = FindChildByName(root.transform, objectName);
-        if (target == null)
-        {
-            Debug.LogWarning($"[NOVR] Native menu environment could not find preview effect object '{objectName}'.");
-            return;
-        }
-
-        var changed = false;
-        if (!target.gameObject.activeSelf)
-        {
-            target.gameObject.SetActive(true);
-            changed = true;
-        }
-
-        var lights = target.GetComponentsInChildren<Light>(true);
-        for (var index = 0; index < lights.Length; index++)
-        {
-            var light = lights[index];
-            if (light == null) continue;
-
-            if (!light.gameObject.activeSelf)
-            {
-                light.gameObject.SetActive(true);
-                changed = true;
-            }
-
-            if (!light.enabled)
-            {
-                light.enabled = true;
-                changed = true;
-            }
-
-            if (light.cullingMask != ~0)
-            {
-                light.cullingMask = ~0;
-                changed = true;
-            }
-        }
-
-        var renderers = target.GetComponentsInChildren<Renderer>(true);
-        for (var index = 0; index < renderers.Length; index++)
-        {
-            var renderer = renderers[index];
-            if (renderer == null) continue;
-            if (RendererUsesMainTexture(renderer, NavLightStarburstTextureName)) continue;
-
-            if (!renderer.gameObject.activeSelf)
-            {
-                renderer.gameObject.SetActive(true);
-                changed = true;
-            }
-
-            if (!renderer.enabled)
-            {
-                renderer.enabled = true;
-                changed = true;
-            }
-        }
-
-        var particleSystems = target.GetComponentsInChildren<ParticleSystem>(true);
-        for (var index = 0; index < particleSystems.Length; index++)
-        {
-            var particleSystem = particleSystems[index];
-            if (particleSystem == null) continue;
-
-            if (!particleSystem.gameObject.activeSelf)
-            {
-                particleSystem.gameObject.SetActive(true);
-                changed = true;
-            }
-
-            if (!particleSystem.isPlaying)
-            {
-                particleSystem.Play(true);
-                changed = true;
-            }
-        }
-
-        if (changed)
-        {
-            Debug.Log($"[NOVR] Native menu environment restored preview effect object '{objectName}'.");
-        }
-    }
-
-    private static void HideNavLightStarburstRenderers(GameObject root)
-    {
-        HideNavLightStarburstRenderers(root, "navlight_effects_L");
-        HideNavLightStarburstRenderers(root, "navlight_effects_R");
-    }
-
-    private static void HideNavLightStarburstRenderers(GameObject root, string effectRootName)
-    {
-        var effectRoot = FindChildByName(root.transform, effectRootName);
-        if (effectRoot == null) return;
-
-        var renderers = effectRoot.GetComponentsInChildren<Renderer>(true);
-        for (var index = 0; index < renderers.Length; index++)
-        {
-            var renderer = renderers[index];
-            if (renderer == null || !RendererUsesMainTexture(renderer, NavLightStarburstTextureName)) continue;
-
-            if (renderer.enabled)
-            {
-                renderer.enabled = false;
-                Debug.Log($"[NOVR] Native menu environment disabled navlight starburst renderer '{GetTransformPath(renderer.transform)}'.");
-            }
-        }
-    }
-
-    private static bool RendererUsesMainTexture(Renderer renderer, string textureName)
-    {
-        var materials = renderer.sharedMaterials;
-        if (materials == null) return false;
-
-        for (var index = 0; index < materials.Length; index++)
-        {
-            var material = materials[index];
-            if (material == null || material.mainTexture == null) continue;
-
-            if (string.Equals(material.mainTexture.name, textureName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static Transform? FindChildByName(Transform root, string objectName)

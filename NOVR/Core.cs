@@ -3,6 +3,7 @@ using System.Reflection;
 using NOVR.VrCamera;
 using NOVR.VrTogglers;
 using NOVR.VrUi;
+using NOVR.VrUi.Native;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
@@ -36,6 +37,7 @@ public class Core : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         gameObject.AddComponent<VrCameraManager>();
         gameObject.AddComponent<APIBus>();
+        EnsureNativeMenuEnvironmentAssetCache();
     }
 
     private static void HandleApplicationQuitting()
@@ -59,7 +61,7 @@ public class Core : MonoBehaviour
 
     private void Start()
     {
-        
+        EnsureNativeMenuEnvironmentAssetCache();
         
         var xrDeviceType = Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.XRModule") ??
                            Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.VRModule") ??
@@ -85,7 +87,19 @@ public class Core : MonoBehaviour
 
     private void Update()
     {
+        EnsureNativeMenuEnvironmentAssetCache();
         UpdatePhysicsRate();
+    }
+
+    private void EnsureNativeMenuEnvironmentAssetCache()
+    {
+        if (NativeMenuEnvironmentAssetCache.Instance != null ||
+            gameObject.GetComponent<NativeMenuEnvironmentAssetCache>() != null)
+        {
+            return;
+        }
+
+        gameObject.AddComponent<NativeMenuEnvironmentAssetCache>();
     }
 
     private void UpdatePhysicsRate()
