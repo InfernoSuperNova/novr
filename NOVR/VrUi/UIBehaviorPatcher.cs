@@ -35,6 +35,8 @@ public class UIBehaviorPatcher : NOVRBehaviour
     private static Dictionary<Component, Type> _toPatch_component = new();
     private static Dictionary<string, Type> _toPatch_name = new();
     private static List<GameObject> _toReactivate = new();
+    private float _nextVirtualMfdFrameSuppressionTime;
+    private int _virtualMfdFrameSuppressionPasses;
     
 
     static UIBehaviorPatcher()
@@ -134,6 +136,8 @@ public class UIBehaviorPatcher : NOVRBehaviour
             }
             _toPatch_name.Clear();
         }
+
+        SuppressVirtualMfdFrameArtifacts();
     }
     
     private static void AddAndBounceIfActive(GameObject go, Type toAdd)
@@ -146,5 +150,64 @@ public class UIBehaviorPatcher : NOVRBehaviour
         Debug.Log($"UIBehaviorPatcher: Deactivating {go.name} for one frame to force lifecycle callbacks");
         go.SetActive(false);
         _toReactivate.Add(go);
+    }
+
+    private void SuppressVirtualMfdFrameArtifacts()
+    {
+        if (_virtualMfdFrameSuppressionPasses >= 30 ||
+            Time.realtimeSinceStartup < _nextVirtualMfdFrameSuppressionTime)
+        {
+            return;
+        }
+
+        _virtualMfdFrameSuppressionPasses++;
+        _nextVirtualMfdFrameSuppressionTime = Time.realtimeSinceStartup + 1f;
+
+        foreach (var graphic in Resources.FindObjectsOfTypeAll<UnityEngine.UI.Graphic>())
+        {
+            if (graphic == null || !graphic.enabled || !graphic.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            var path = GetGameObjectPath(graphic.gameObject);
+            if (!ContainsIgnoreCase(path, "GameplayUICanvas/VirtualMFD") ||
+                !IsVirtualMfdFrameArtifact(graphic.gameObject.name))
+            {
+                continue;
+            }
+
+            graphic.enabled = false;
+            graphic.raycastTarget = false;
+            Debug.Log($"UIBehaviorPatcher: Disabled VirtualMFD frame artifact '{path}'");
+        }
+    }
+
+    private static bool IsVirtualMfdFrameArtifact(string name)
+    {
+        return string.Equals(name, "MFD_MapOptions", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "MFD_HUDOptions", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "MFD_SelectOptions", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "MFD_Objectives", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "FactionInfoPanel_Left", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "FactionInfoPanel_Right", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsIgnoreCase(string source, string value)
+    {
+        return source.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string GetGameObjectPath(GameObject go)
+    {
+        var path = go.name;
+        var parent = go.transform.parent;
+        while (parent != null)
+        {
+            path = parent.name + "/" + path;
+            parent = parent.parent;
+        }
+
+        return path;
     }
 }
