@@ -34,7 +34,16 @@ internal static class ThreatItemVectorLineRotationSafePatch
                 0.0f,
                 -Mathf.Atan2(localDelta.x, localDelta.y) * Mathf.Rad2Deg);
             vectorLine.transform.localScale = (Vector3.one + Vector3.up * localDelta.magnitude) / iconLayer.lossyScale.x;
+            DisableRaycasts(vectorLine.transform);
             return false;
+        }
+    }
+
+    private static void DisableRaycasts(Transform root)
+    {
+        foreach (var graphic in root.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+        {
+            graphic.raycastTarget = false;
         }
     }
 }

@@ -48,13 +48,23 @@ internal static class JammedMarkerRotationSafePatch
             var jammerLocalPosition = iconLayer.InverseTransformPoint(jammedByIcon.transform.position);
             var localDelta = jammerLocalPosition - jammedLocalPosition;
             vectorLineImage.enabled = true;
+            vectorLineImage.raycastTarget = false;
             vectorLine.transform.localPosition = jammedLocalPosition;
             vectorLine.transform.localEulerAngles = new Vector3(
                 0.0f,
                 0.0f,
                 -Mathf.Atan2(localDelta.x, localDelta.y) * Mathf.Rad2Deg);
             vectorLine.transform.localScale = new Vector3(1.0f, localDelta.magnitude, 1.0f);
+            DisableRaycasts(vectorLine.transform);
             return false;
+        }
+    }
+
+    private static void DisableRaycasts(Transform root)
+    {
+        foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
+        {
+            graphic.raycastTarget = false;
         }
     }
 }
