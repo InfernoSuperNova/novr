@@ -19,6 +19,8 @@ public class ModConfiguration
     public readonly ConfigEntry<bool> EnableExperimentalSteamVrControllerProfiles;
     public readonly ConfigEntry<bool> LogXrStartupDiagnostics;
     public readonly ConfigEntry<float> CockpitHeadForwardOffset;
+    public readonly ConfigEntry<float> CockpitHeadRightOffset;
+    public readonly ConfigEntry<KeyCode> RecenterShortcut;
 
     public ModConfiguration(ConfigFile config)
     {
@@ -78,5 +80,17 @@ public class ModConfiguration
             "Cockpit Head Forward Offset",
             0.05f,
             "Offset in meters applied to the cockpit head forward vector. Helps keep the ejection seat bars out of your face.");
+
+        CockpitHeadRightOffset = config.Bind(
+            "Experimental",
+            "Cockpit Head Right Offset",
+            0.0f,
+            "Offset in meters applied to the cockpit head right vector. Moves you left (negative) or right (positive) to correct off-center seating.");
+
+        RecenterShortcut = config.Bind(
+            "Input",
+            "Recenter Shortcut",
+            KeyCode.F9,
+            "Keyboard shortcut to recenter the VR view. For HOTAS users, map a joystick button to this key via external software.");
     }
 }
