@@ -1,4 +1,6 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
 using BepInEx.Configuration;
 using UnityEngine;
 
@@ -21,6 +23,9 @@ public class ModConfiguration
     public readonly ConfigEntry<float> CockpitHeadForwardOffset;
     public readonly ConfigEntry<float> CockpitHeadRightOffset;
     public readonly ConfigEntry<KeyCode> RecenterShortcut;
+    public readonly ConfigEntry<bool> SavePositionTrigger;
+
+    private readonly Dictionary<string, (ConfigEntry<float> Forward, ConfigEntry<float> Right)> _perPlaneEntries = new();
 
     public ModConfiguration(ConfigFile config)
     {
@@ -92,5 +97,102 @@ public class ModConfiguration
             "Recenter Shortcut",
             KeyCode.F9,
             "Keyboard shortcut to recenter the VR view. For HOTAS users, map a joystick button to this key via external software.");
+
+        SavePositionTrigger = config.Bind(
+            "Experimental",
+            "Save Position For Current Aircraft",
+            false,
+            "Check this box to save the current Cockpit Head Forward/Right Offset values for the aircraft you're currently in. Automatically unchecks itself.");
+
+        SavePositionTrigger.SettingChanged += (_, _) =>
+        {
+            if (!SavePositionTrigger.Value) return;
+            SavePositionTrigger.Value = false;
+
+            if (string.IsNullOrEmpty(Core.CurrentAircraftId))
+            {
+                Debug.LogWarning("[NOVR] Cannot save cockpit offset: no aircraft is currently active.");
+                return;
+            }
+
+            SaveCurrentOffsetFor(Core.CurrentAircraftId, CockpitHeadForwardOffset.Value, CockpitHeadRightOffset.Value);
+        };
+
+        PreloadPerPlaneEntries();
+    }
+
+    private void PreloadPerPlaneEntries()
+    {
+        if (!File.Exists(Config.ConfigFilePath)) return;
+
+        var inPerPlaneSection = false;
+        foreach (var rawLine in File.ReadAllLines(Config.ConfigFilePath))
+        {
+            var line = rawLine.Trim();
+            if (line.StartsWith("[") && line.EndsWith("]"))
+            {
+                inPerPlaneSection = line.Equals("[PerPlaneOffsets]");
+                continue;
+            }
+
+            if (!inPerPlaneSection) continue;
+
+            var equalsIndex = line.IndexOf('=');
+            if (equalsIndex <= 0) continue;
+
+            var key = line.Substring(0, equalsIndex).Trim();
+            if (key.EndsWith("_Forward"))
+            {
+                GetOrCreatePlaneEntries(key.Substring(0, key.Length - "_Forward".Length));
+            }
+            else if (key.EndsWith("_Right"))
+            {
+                GetOrCreatePlaneEntries(key.Substring(0, key.Length - "_Right".Length));
+            }
+        }
+    }
+
+    private (ConfigEntry<float> Forward, ConfigEntry<float> Right) GetOrCreatePlaneEntries(string aircraftId)
+    {
+        if (_perPlaneEntries.TryGetValue(aircraftId, out var entries)) return entries;
+
+        var forward = Config.Bind(
+            "PerPlaneOffsets",
+            $"{aircraftId}_Forward",
+            float.NaN,
+            "Saved Cockpit Head Forward Offset for this aircraft type. NaN means no value has been saved yet.");
+
+        var right = Config.Bind(
+            "PerPlaneOffsets",
+            $"{aircraftId}_Right",
+            float.NaN,
+            "Saved Cockpit Head Right Offset for this aircraft type. NaN means no value has been saved yet.");
+
+        entries = (forward, right);
+        _perPlaneEntries[aircraftId] = entries;
+        return entries;
+    }
+
+    public bool TryGetSavedOffset(string aircraftId, out float forward, out float right)
+    {
+        forward = 0f;
+        right = 0f;
+        if (string.IsNullOrEmpty(aircraftId)) return false;
+
+        var entries = GetOrCreatePlaneEntries(aircraftId);
+        if (float.IsNaN(entries.Forward.Value) || float.IsNaN(entries.Right.Value)) return false;
+
+        forward = entries.Forward.Value;
+        right = entries.Right.Value;
+        return true;
+    }
+
+    public void SaveCurrentOffsetFor(string aircraftId, float forward, float right)
+    {
+        if (string.IsNullOrEmpty(aircraftId)) return;
+
+        var entries = GetOrCreatePlaneEntries(aircraftId);
+        entries.Forward.Value = forward;
+        entries.Right.Value = right;
     }
 }
