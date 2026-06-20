@@ -41,7 +41,8 @@ public class NOVRHeadsetData : NOVRBehaviour
             (calibrationAxes & CalibrationAxes.X) != 0 ? currentError.x : ov ? TranslationCalibrationOffset.x : 0,
             (calibrationAxes & CalibrationAxes.Y) != 0 ? currentError.y : ov ? TranslationCalibrationOffset.y : 0,
             (calibrationAxes & CalibrationAxes.Z) != 0 ? currentError.z : ov ? TranslationCalibrationOffset.z : 0
-        ) + Vector3.forward * ModConfiguration.Instance.CockpitHeadForwardOffset.Value;
+        ) + Vector3.forward * ModConfiguration.Instance.CockpitHeadForwardOffset.Value
+          + Vector3.right * ModConfiguration.Instance.CockpitHeadRightOffset.Value;
     }
 
 

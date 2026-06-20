@@ -97,6 +97,8 @@ public class NativeVrUiRoot : NOVRBehaviour
             _menuEnvironment?.Hide();
             ClearNativeCursorProjectionReference();
             SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
+            HandleRecenterShortcut(false);
+            UpdateLivePendingRecenter();
             return;
         }
 
