@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Generic;
 using HarmonyLib;
 using NOVR.PatchHelper;
 using NOVR.VrUi.HarmonyPatches;
@@ -10,6 +11,10 @@ namespace NOVR.Patches.HUD;
 // Ensures our hud markers are in our VR UI camera's space
 internal static class HUDUnitMarkerPatch
 {
+    private const float CockpitHudPositionScale = 0.01f;
+    private const float NearMarkerBlendStartMeters = 2.0f;
+    private const float NearMarkerFullScaleMeters = 1.0f;
+
     private static readonly FieldInfo HiddenField = AccessTools.Field(typeof(HUDUnitMarker), "hidden");
     private static readonly FieldInfo TransformField = AccessTools.Field(typeof(HUDUnitMarker), "_transform");
     private static readonly FieldInfo IconField = AccessTools.Field(typeof(HUDUnitMarker), "icon");
@@ -24,6 +29,7 @@ internal static class HUDUnitMarkerPatch
     private static readonly FieldInfo TargetArrowTailField = AccessTools.Field(typeof(CombatHUD), "targetArrowTail");
     private static readonly FieldInfo TargetTextField = AccessTools.Field(typeof(CombatHUD), "targetText");
     private static readonly FieldInfo TargetInfoField = AccessTools.Field(typeof(CombatHUD), "targetInfo");
+    private static readonly Dictionary<int, Vector3> BaseLocalScales = new();
 
     private static bool GetHidden(HUDUnitMarker marker) => (bool)HiddenField.GetValue(marker);
     private static Transform GetTransform(HUDUnitMarker marker) => (Transform)TransformField.GetValue(marker);
@@ -102,22 +108,41 @@ internal static class HUDUnitMarkerPatch
 
     private static void UpdateSelectedMarker(HUDUnitMarker marker, GlobalPosition knownPosition, Component hudCamera)
     {
-        if (VrHudProjectionHelper.PinToScreenEdge(knownPosition.ToLocalPosition(), out var rayToScreen, out _))
+        var localPos = knownPosition.ToLocalPosition();
+        if (VrHudProjectionHelper.PinToScreenEdge(localPos, out var rayToScreen, out _))
         {
             marker.image.enabled = false;
-            if (VrHudProjectionHelper.TryProjectDirectionToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-                SetTargetArrow(SceneSingleton<CombatHUD>.i, true, rayToScreen, targetHudPosition, -hudCamera.transform.forward, hudCamera);
+            if (VrHudProjectionHelper.TryProjectDirectionToCockpitHud(localPos, out var targetHudPosition))
+                SetTargetArrow(
+                    SceneSingleton<CombatHUD>.i,
+                    true,
+                    ToCockpitHudWorldPosition(rayToScreen, localPos),
+                    ToCockpitHudWorldPosition(targetHudPosition, localPos),
+                    -hudCamera.transform.forward,
+                    hudCamera);
         }
         else
         {
             marker.image.enabled = true;
-            if (VrHudProjectionHelper.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-                GetTransform(marker).position = targetHudPosition;
+            if (VrHudProjectionHelper.TryProjectToCockpitHud(localPos, out var targetHudPosition))
+                GetTransform(marker).position = ToCockpitHudWorldPosition(targetHudPosition, localPos);
             SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero, hudCamera);
         }
 
         ApplyAngularScale(marker, GetTransform(marker).position);
+        UpdateTargetInfo(marker, hudCamera);
         UpdateSelectedMarkerSprite(marker);
+    }
+
+    private static void UpdateTargetInfo(HUDUnitMarker marker, Component hudCamera)
+    {
+        var targetInfo = (Text)TargetInfoField.GetValue(SceneSingleton<CombatHUD>.i);
+        if (targetInfo == null)
+            return;
+
+        targetInfo.transform.position = GetTransform(marker).position;
+        targetInfo.transform.rotation = hudCamera.transform.rotation;
+        ApplyAngularScale(targetInfo.transform, targetInfo.transform.position);
     }
 
     private static void UpdateSelectedMarkerSprite(HUDUnitMarker marker)
@@ -152,10 +177,11 @@ internal static class HUDUnitMarkerPatch
             marker.image.enabled = true;
 
         var localPos = knownPosition.ToLocalPosition();
-        var hudPos = VrHudProjectionHelper.WorldToHud(localPos) / 100f;
+        var hudPos = ToCockpitHudLocalPosition(VrHudProjectionHelper.WorldToHud(localPos));
+        var worldHudPos = ToCockpitHudWorldPosition(hudPos, localPos);
         
-        GetTransform(marker).position = hudPos;
-        ApplyAngularScale(marker, hudPos);
+        GetTransform(marker).position = worldHudPos;
+        ApplyAngularScale(marker, worldHudPos);
 
         if (marker.fresh)
         {
@@ -194,6 +220,25 @@ internal static class HUDUnitMarkerPatch
         ApplyAngularScale(marker, GetTransform(marker).position);
     }
 
+    private static Vector3 ToCockpitHudWorldPosition(Vector3 cockpitHudPosition, Vector3 targetWorldPosition)
+    {
+        var hudCamera = APIBus.CockpitHudCamera;
+        if (hudCamera == null)
+            return cockpitHudPosition;
+
+        var scaledPosition = cockpitHudPosition * CockpitHudPositionScale;
+        var distanceToTarget = Vector3.Distance(APIBus.MainCamera.transform.position, targetWorldPosition);
+        var unscaledBlend = Mathf.InverseLerp(NearMarkerBlendStartMeters, NearMarkerFullScaleMeters, distanceToTarget);
+        var blendedPosition = Vector3.Lerp(scaledPosition, cockpitHudPosition, unscaledBlend);
+        return hudCamera.transform.position + blendedPosition;
+    }
+
+    private static Vector3 ToCockpitHudLocalPosition(Vector3 cockpitHudWorldPosition)
+    {
+        var hudCamera = APIBus.CockpitHudCamera;
+        return hudCamera == null ? cockpitHudWorldPosition : cockpitHudWorldPosition - hudCamera.transform.position;
+    }
+
     private static float GetMarkerBaseScale(HUDUnitMarker marker)
     {
         if (marker.selected)
@@ -219,6 +264,10 @@ internal static class HUDUnitMarkerPatch
             return;
 
         targetArrow.transform.position = position;
+        ApplyAngularScale(targetArrow.transform, position);
+        ApplyAngularScale(targetText.transform, targetText.transform.position);
+        ApplyAngularScale(targetArrowTail, targetArrowTail.position);
+
         var desiredUp = targetPosition - position;
         if (desiredUp.sqrMagnitude <= Mathf.Epsilon)
             desiredUp = targetArrow.transform.up;
@@ -235,5 +284,30 @@ internal static class HUDUnitMarkerPatch
             desiredForward = Vector3.Cross(desiredUp, APIBus.CockpitHudCamera.transform.right);
 
         targetArrow.transform.rotation = Quaternion.LookRotation(desiredForward.normalized, desiredUp);
+    }
+
+    private static void ApplyAngularScale(Transform transform, Vector3 worldPosition)
+    {
+        var hudCamera = APIBus.CockpitHudCamera;
+        if (hudCamera == null || transform == null)
+            return;
+
+        var depth = Vector3.Dot(worldPosition - hudCamera.transform.position, hudCamera.transform.forward);
+        if (depth <= Mathf.Epsilon)
+            depth = VrHudProjectionHelper.HudDistance;
+
+        var scaleFactor = depth / VrHudProjectionHelper.HudDistance;
+        transform.localScale = GetBaseLocalScale(transform) * scaleFactor;
+    }
+
+    private static Vector3 GetBaseLocalScale(Component component)
+    {
+        var instanceId = component.GetInstanceID();
+        if (BaseLocalScales.TryGetValue(instanceId, out var baseScale))
+            return baseScale;
+
+        baseScale = component.transform.localScale;
+        BaseLocalScales[instanceId] = baseScale;
+        return baseScale;
     }
 }
