@@ -67,6 +67,24 @@ internal static class HUDUnitMarkerPatch
         return false;
     }
 
+    [PatchPostfix(typeof(HUDUnitMarker), nameof(HUDUnitMarker.UpdateVisibility))]
+    private static void UpdateVisibility(HUDUnitMarker __instance)
+    {
+        NormalizeAngularScale(__instance);
+    }
+
+    [PatchPostfix(typeof(HUDUnitMarker), nameof(HUDUnitMarker.SelectMarker))]
+    private static void SelectMarker(HUDUnitMarker __instance)
+    {
+        NormalizeAngularScale(__instance);
+    }
+
+    [PatchPostfix(typeof(HUDUnitMarker), nameof(HUDUnitMarker.DeselectMarker))]
+    private static void DeselectMarker(HUDUnitMarker __instance)
+    {
+        NormalizeAngularScale(__instance);
+    }
+
     private static void RotateTargetInfoToHudCamera(Component hudCamera)
     {
         var targetInfo = (Text)TargetInfoField.GetValue(SceneSingleton<CombatHUD>.i);
@@ -134,7 +152,7 @@ internal static class HUDUnitMarkerPatch
             marker.image.enabled = true;
 
         var localPos = knownPosition.ToLocalPosition();
-        var hudPos = VrHudProjectionHelper.WorldToHud(localPos) / 10f;
+        var hudPos = VrHudProjectionHelper.WorldToHud(localPos) / 100f;
         
         GetTransform(marker).position = hudPos;
         ApplyAngularScale(marker, hudPos);
@@ -169,6 +187,11 @@ internal static class HUDUnitMarkerPatch
         var angularScale = baseScale * depth / VrHudProjectionHelper.HudDistance;
         var transform = GetTransform(marker);
         transform.localScale = Vector3.one * angularScale;
+    }
+
+    private static void NormalizeAngularScale(HUDUnitMarker marker)
+    {
+        ApplyAngularScale(marker, GetTransform(marker).position);
     }
 
     private static float GetMarkerBaseScale(HUDUnitMarker marker)
