@@ -7,10 +7,9 @@ using UnityEngine.UI;
 
 namespace NOVR.Patches.HUD;
 
-
 // Ensures our hud markers are in our VR UI camera's space
 internal static class HUDUnitMarkerPatch
-{ 
+{
     private static readonly FieldInfo HiddenField = AccessTools.Field(typeof(HUDUnitMarker), "hidden");
     private static readonly FieldInfo TransformField = AccessTools.Field(typeof(HUDUnitMarker), "_transform");
     private static readonly FieldInfo IconField = AccessTools.Field(typeof(HUDUnitMarker), "icon");
@@ -21,129 +20,158 @@ internal static class HUDUnitMarkerPatch
     private static readonly FieldInfo TargetArrowTailField = AccessTools.Field(typeof(CombatHUD), "targetArrowTail");
     private static readonly FieldInfo TargetTextField = AccessTools.Field(typeof(CombatHUD), "targetText");
     private static readonly FieldInfo TargetInfoField = AccessTools.Field(typeof(CombatHUD), "targetInfo");
+
     private static bool GetHidden(HUDUnitMarker marker) => (bool)HiddenField.GetValue(marker);
     private static Transform GetTransform(HUDUnitMarker marker) => (Transform)TransformField.GetValue(marker);
     private static Sprite GetIcon(HUDUnitMarker marker) => (Sprite)IconField.GetValue(marker);
     private static float GetTimeCreated(HUDUnitMarker marker) => (float)TimeCreatedField.GetValue(marker);
     private static Color GetColor(HUDUnitMarker marker) => (Color)ColorField.GetValue(marker);
     private static bool GetFlashing(HUDUnitMarker marker) => (bool)FlashingField.GetValue(marker);
-
-    [HarmonyPatch(typeof(HUDUnitMarker), nameof(HUDUnitMarker.UpdatePosition))]
-    
     
     [PatchPrefix(typeof(HUDUnitMarker), nameof(HUDUnitMarker.UpdatePosition))]
     private static bool UpdatePosition(HUDUnitMarker __instance, FactionHQ hq, ref GlobalPosition viewPosition, ref Vector3 cameraForward)
     {
-        var mainCamera = APIBus.MainCamera;
-        var screenSpaceCamera = APIBus.CockpitHudCamera;
+        var hudCamera = APIBus.CockpitHudCamera;
+        var markerTransform = GetTransform(__instance);
+        markerTransform.rotation = hudCamera.transform.rotation;
 
-        var realCameraPosition = mainCamera.transform.GlobalPosition();
-        var realCameraForward = mainCamera.transform.forward;
-        GetTransform(__instance).rotation = screenSpaceCamera.transform.rotation;
-        
-        
-        
-        
+        RotateTargetInfoToHudCamera(hudCamera);
+
+        if (GetHidden(__instance))
+            return false;
+
+        if (!TryGetKnownPosition(__instance, hq, out var knownPosition))
+            return false;
+
+        if (__instance.selected)
+        {
+            UpdateSelectedMarker(__instance, knownPosition, hudCamera);
+            return false;
+        }
+
+        if (IsBehindMainCamera(knownPosition))
+        {
+            __instance.image.enabled = false;
+            return false;
+        }
+
+        UpdateUnselectedMarker(__instance, knownPosition);
+        return false;
+    }
+
+    private static void RotateTargetInfoToHudCamera(Component hudCamera)
+    {
         var targetInfo = (Text)TargetInfoField.GetValue(SceneSingleton<CombatHUD>.i);
         if (targetInfo != null)
         {
-            targetInfo.transform.rotation = screenSpaceCamera.transform.rotation;
+            targetInfo.transform.rotation = hudCamera.transform.rotation;
         }
-        
-        if (GetHidden(__instance))
-            return false;
-        GlobalPosition knownPosition = __instance.unit.GlobalPosition();
-        if (__instance.outdated && !hq.TryGetKnownPosition(__instance.unit, out knownPosition))
-          return false;
-        if (__instance.selected)
+    }
+
+    private static bool TryGetKnownPosition(HUDUnitMarker marker, FactionHQ hq, out GlobalPosition knownPosition)
+    {
+        knownPosition = marker.unit.GlobalPosition();
+        return !marker.outdated || hq.TryGetKnownPosition(marker.unit, out knownPosition);
+    }
+
+    private static void UpdateSelectedMarker(HUDUnitMarker marker, GlobalPosition knownPosition, Component hudCamera)
+    {
+        if (VrHudProjectionHelper.PinToScreenEdge(knownPosition.ToLocalPosition(), out var rayToScreen, out _))
         {
-          if (VrHudProjectionHelper.PinToScreenEdge(knownPosition.ToLocalPosition(), out Vector3 rayToScreen, out _))
-          {
-            __instance.image.enabled = false;
+            marker.image.enabled = false;
             if (VrHudProjectionHelper.TryProjectDirectionToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-              SetTargetArrow(SceneSingleton<CombatHUD>.i, true, rayToScreen, targetHudPosition, -screenSpaceCamera.transform.forward, screenSpaceCamera);
-          }
-          else
-          {
-            __instance.image.enabled = true;
-            
-            if (VrHudProjectionHelper.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-              GetTransform(__instance).position = targetHudPosition;
-            SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero, screenSpaceCamera);
-          }
-          if (!__instance.unit.HasRadarEmission())
-            return false;
-          if ((__instance.unit.radar as Radar).IsJammed())
-          {
-            if (!(__instance.image.sprite != GameAssets.i.targetUnitSpriteJammed))
-              return false;
-            __instance.image.sprite = GameAssets.i.targetUnitSpriteJammed;
-          }
-          else
-          {
-            if (!(__instance.image.sprite == GameAssets.i.targetUnitSpriteJammed))
-              return false;
-            __instance.image.sprite = DynamicMap.GetFactionMode(__instance.unit.NetworkHQ) == FactionMode.Friendly ? GameAssets.i.targetUnitSpriteFriendly : GetIcon(__instance);
-          }
-        }
-        else if (Vector3.Dot(knownPosition - realCameraPosition, realCameraForward) < 0.0)
-        {
-          if (!__instance.image.enabled)
-            return false;
-          __instance.image.enabled = false;
+                SetTargetArrow(SceneSingleton<CombatHUD>.i, true, rayToScreen, targetHudPosition, -hudCamera.transform.forward, hudCamera);
         }
         else
         {
-          if (!__instance.image.enabled)
-            __instance.image.enabled = true;
-          if (VrHudProjectionHelper.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-            GetTransform(__instance).position = targetHudPosition;
-          if (__instance.fresh)
-          {
-            Color markerColor = GetColor(__instance);
-            float t = Time.timeSinceLevelLoad - GetTimeCreated(__instance);
-            __instance.image.color = Color.Lerp(markerColor + Color.yellow, markerColor, t);
-            if (t > 1.0)
-              __instance.fresh = false;
-          }
-          if (!GetFlashing(__instance))
-            return false;
-          Color flashingColor = GetColor(__instance);
-          __instance.image.color = Color.Lerp(flashingColor + Color.yellow, flashingColor, Mathf.Sin(Time.timeSinceLevelLoad * 20f) + 0.5f);
+            marker.image.enabled = true;
+            if (VrHudProjectionHelper.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
+                GetTransform(marker).position = targetHudPosition;
+            SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero, hudCamera);
         }
 
-        return false;
+        UpdateSelectedMarkerSprite(marker);
     }
-    
+
+    private static void UpdateSelectedMarkerSprite(HUDUnitMarker marker)
+    {
+        if (!marker.unit.HasRadarEmission())
+            return;
+
+        if ((marker.unit.radar as Radar).IsJammed())
+        {
+            if (marker.image.sprite != GameAssets.i.targetUnitSpriteJammed)
+                marker.image.sprite = GameAssets.i.targetUnitSpriteJammed;
+            return;
+        }
+
+        if (marker.image.sprite == GameAssets.i.targetUnitSpriteJammed)
+            marker.image.sprite = DynamicMap.GetFactionMode(marker.unit.NetworkHQ) == FactionMode.Friendly
+                ? GameAssets.i.targetUnitSpriteFriendly
+                : GetIcon(marker);
+    }
+
+    private static bool IsBehindMainCamera(GlobalPosition knownPosition)
+    {
+        var mainCamera = APIBus.MainCamera;
+        var realCameraPosition = mainCamera.transform.GlobalPosition();
+        var realCameraForward = mainCamera.transform.forward;
+        return Vector3.Dot(knownPosition - realCameraPosition, realCameraForward) < 0.0f;
+    }
+
+    private static void UpdateUnselectedMarker(HUDUnitMarker marker, GlobalPosition knownPosition)
+    {
+        if (!marker.image.enabled)
+            marker.image.enabled = true;
+
+        if (VrHudProjectionHelper.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
+            GetTransform(marker).position = targetHudPosition;
+
+        if (marker.fresh)
+        {
+            var markerColor = GetColor(marker);
+            var elapsed = Time.timeSinceLevelLoad - GetTimeCreated(marker);
+            marker.image.color = Color.Lerp(markerColor + Color.yellow, markerColor, elapsed);
+            if (elapsed > 1.0f)
+                marker.fresh = false;
+        }
+
+        if (!GetFlashing(marker))
+            return;
+
+        var flashingColor = GetColor(marker);
+        marker.image.color = Color.Lerp(flashingColor + Color.yellow, flashingColor, Mathf.Sin(Time.timeSinceLevelLoad * 20f) + 0.5f);
+    }
+
     private static void SetTargetArrow(CombatHUD instance, bool enabled, Vector3 position, Vector3 targetPosition, Vector3 up, Component screenSpaceCamera)
     {
-      var targetArrow = (Image)TargetArrowField.GetValue(instance);
-      var targetArrowTail = (Transform)TargetArrowTailField.GetValue(instance);
-      var targetText = (Text)TargetTextField.GetValue(instance);
+        var targetArrow = (Image)TargetArrowField.GetValue(instance);
+        var targetArrowTail = (Transform)TargetArrowTailField.GetValue(instance);
+        var targetText = (Text)TargetTextField.GetValue(instance);
 
-      targetArrow.enabled = enabled;
-      targetText.enabled = enabled;
-      targetText.transform.position = targetArrowTail.position;
-      targetText.transform.rotation = screenSpaceCamera.transform.rotation;
-      if (!enabled)
-        return;
+        targetArrow.enabled = enabled;
+        targetText.enabled = enabled;
+        targetText.transform.position = targetArrowTail.position;
+        targetText.transform.rotation = screenSpaceCamera.transform.rotation;
+        if (!enabled)
+            return;
 
-      targetArrow.transform.position = position;
-      var desiredUp = targetPosition - position;
-      if (desiredUp.sqrMagnitude <= Mathf.Epsilon)
-        desiredUp = targetArrow.transform.up;
-      desiredUp.Normalize();
+        targetArrow.transform.position = position;
+        var desiredUp = targetPosition - position;
+        if (desiredUp.sqrMagnitude <= Mathf.Epsilon)
+            desiredUp = targetArrow.transform.up;
+        desiredUp.Normalize();
 
-      var desiredForward = -up;
-      if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
-        desiredForward = APIBus.CockpitHudCamera.transform.forward;
+        var desiredForward = -up;
+        if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
+            desiredForward = APIBus.CockpitHudCamera.transform.forward;
 
-      desiredForward = Vector3.ProjectOnPlane(desiredForward, desiredUp);
-      if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
-        desiredForward = Vector3.ProjectOnPlane(APIBus.CockpitHudCamera.transform.forward, desiredUp);
-      if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
-        desiredForward = Vector3.Cross(desiredUp, APIBus.CockpitHudCamera.transform.right);
+        desiredForward = Vector3.ProjectOnPlane(desiredForward, desiredUp);
+        if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
+            desiredForward = Vector3.ProjectOnPlane(APIBus.CockpitHudCamera.transform.forward, desiredUp);
+        if (desiredForward.sqrMagnitude <= Mathf.Epsilon)
+            desiredForward = Vector3.Cross(desiredUp, APIBus.CockpitHudCamera.transform.right);
 
-      targetArrow.transform.rotation = Quaternion.LookRotation(desiredForward.normalized, desiredUp);
+        targetArrow.transform.rotation = Quaternion.LookRotation(desiredForward.normalized, desiredUp);
     }
 }
