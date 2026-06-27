@@ -16,6 +16,10 @@ internal static class HUDUnitMarkerPatch
     private static readonly FieldInfo TimeCreatedField = AccessTools.Field(typeof(HUDUnitMarker), "timeCreated");
     private static readonly FieldInfo ColorField = AccessTools.Field(typeof(HUDUnitMarker), "color");
     private static readonly FieldInfo FlashingField = AccessTools.Field(typeof(HUDUnitMarker), "flashing");
+    private static readonly FieldInfo MaximizedField = AccessTools.Field(typeof(HUDUnitMarker), "maximized");
+    private static readonly FieldInfo AlwaysMaximizedField = AccessTools.Field(typeof(HUDUnitMarker), "alwaysMaximized");
+    private static readonly FieldInfo CustomScaleField = AccessTools.Field(typeof(HUDUnitMarker), "customScale");
+    private static readonly FieldInfo DistanceScaleField = AccessTools.Field(typeof(HUDUnitMarker), "distanceScale");
     private static readonly FieldInfo TargetArrowField = AccessTools.Field(typeof(CombatHUD), "targetArrow");
     private static readonly FieldInfo TargetArrowTailField = AccessTools.Field(typeof(CombatHUD), "targetArrowTail");
     private static readonly FieldInfo TargetTextField = AccessTools.Field(typeof(CombatHUD), "targetText");
@@ -27,6 +31,10 @@ internal static class HUDUnitMarkerPatch
     private static float GetTimeCreated(HUDUnitMarker marker) => (float)TimeCreatedField.GetValue(marker);
     private static Color GetColor(HUDUnitMarker marker) => (Color)ColorField.GetValue(marker);
     private static bool GetFlashing(HUDUnitMarker marker) => (bool)FlashingField.GetValue(marker);
+    private static bool GetMaximized(HUDUnitMarker marker) => (bool)MaximizedField.GetValue(marker);
+    private static bool GetAlwaysMaximized(HUDUnitMarker marker) => (bool)AlwaysMaximizedField.GetValue(marker);
+    private static float GetCustomScale(HUDUnitMarker marker) => (float)CustomScaleField.GetValue(marker);
+    private static float GetDistanceScale(HUDUnitMarker marker) => (float)DistanceScaleField.GetValue(marker);
     
     [PatchPrefix(typeof(HUDUnitMarker), nameof(HUDUnitMarker.UpdatePosition))]
     private static bool UpdatePosition(HUDUnitMarker __instance, FactionHQ hq, ref GlobalPosition viewPosition, ref Vector3 cameraForward)
@@ -90,6 +98,7 @@ internal static class HUDUnitMarkerPatch
             SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero, hudCamera);
         }
 
+        ApplyAngularScale(marker, GetTransform(marker).position);
         UpdateSelectedMarkerSprite(marker);
     }
 
@@ -124,8 +133,11 @@ internal static class HUDUnitMarkerPatch
         if (!marker.image.enabled)
             marker.image.enabled = true;
 
-        if (VrHudProjectionHelper.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-            GetTransform(marker).position = targetHudPosition;
+        var localPos = knownPosition.ToLocalPosition();
+        var hudPos = VrHudProjectionHelper.WorldToHud(localPos) / 10f;
+        
+        GetTransform(marker).position = hudPos;
+        ApplyAngularScale(marker, hudPos);
 
         if (marker.fresh)
         {
@@ -141,6 +153,33 @@ internal static class HUDUnitMarkerPatch
 
         var flashingColor = GetColor(marker);
         marker.image.color = Color.Lerp(flashingColor + Color.yellow, flashingColor, Mathf.Sin(Time.timeSinceLevelLoad * 20f) + 0.5f);
+    }
+
+    private static void ApplyAngularScale(HUDUnitMarker marker, Vector3 worldPosition)
+    {
+        var hudCamera = APIBus.CockpitHudCamera;
+        if (hudCamera == null)
+            return;
+
+        var baseScale = GetMarkerBaseScale(marker);
+        var depth = Vector3.Dot(worldPosition - hudCamera.transform.position, hudCamera.transform.forward);
+        if (depth <= Mathf.Epsilon)
+            depth = VrHudProjectionHelper.HudDistance;
+
+        var angularScale = baseScale * depth / VrHudProjectionHelper.HudDistance;
+        var transform = GetTransform(marker);
+        transform.localScale = Vector3.one * angularScale;
+    }
+
+    private static float GetMarkerBaseScale(HUDUnitMarker marker)
+    {
+        if (marker.selected)
+            return 20.0f;
+
+        if (GetAlwaysMaximized(marker) || GetMaximized(marker))
+            return GetCustomScale(marker) * GetDistanceScale(marker);
+
+        return DynamicMap.GetFactionMode(marker.unit.NetworkHQ) == FactionMode.Enemy ? 6.0f : 3.0f;
     }
 
     private static void SetTargetArrow(CombatHUD instance, bool enabled, Vector3 position, Vector3 targetPosition, Vector3 up, Component screenSpaceCamera)
