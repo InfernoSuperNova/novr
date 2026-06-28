@@ -26,6 +26,18 @@ internal static class VrHudProjectionHelper
         return true;
     }
 
+    public static Vector3 WorldToHud(Vector3 worldPosition)
+    {
+        var mainCamera = APIBus.MainCamera;
+        var cockpitHudCamera = APIBus.CockpitHudCamera;
+        if (mainCamera == null || cockpitHudCamera == null)
+            return Vector3.zero;
+
+        var mainCameraLocal = mainCamera.transform.InverseTransformPoint(worldPosition);
+        return cockpitHudCamera.transform.TransformPoint(mainCameraLocal);
+    }
+    
+
     public static bool TryProjectDirectionToCockpitHud(Vector3 worldPosition, out Vector3 hudPosition)
     {
         hudPosition = Vector3.zero;
