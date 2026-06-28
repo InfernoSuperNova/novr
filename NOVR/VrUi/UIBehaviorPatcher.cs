@@ -19,7 +19,11 @@ public class UIBehaviorPatcher : NOVRBehaviour
         { typeof(FlightHud), typeof(NOVRFlightHudBehavior) },
         { typeof(GameplayUI), typeof(NOVRGameplayUIBehaviour) },
         { typeof(MessageUI), typeof(NOVRGameplayUIBehaviour) },
-        { typeof(StatusDisplay), typeof(NOVRStatusDisplayBehavior) }
+        { typeof(StatusDisplay), typeof(NOVRStatusDisplayBehavior) },
+        
+        { typeof(AircraftSelectionMenu), typeof(NOVRAircraftSelectionMenuBehavior) },
+        { typeof(LoadoutSelector), typeof(NOVRLoadoutSelectorBehavior) },
+        { typeof(WeaponSelector), typeof(NOVRWeaponSelectorBehavior) },
     };
 
     private static Dictionary<string, Type> _sceneLoadPatchMap = new() // We patch gameobjects by name the first time a scene is loaded (yes we iterate the tree recursively)

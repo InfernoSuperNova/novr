@@ -1,21 +1,12 @@
-using System;
-using System.Reflection;
 using NOVR.UnityTypesHelper;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace NOVR;
 
 [DefaultExecutionOrder(-100)]
 public class NOVRHeadsetData : NOVRBehaviour
 {
-    
-    
-    
-    private static MethodInfo? _trackingRotationMethod;
-    private static MethodInfo? _trackingPositionMethod;
-    private static readonly object[] TrackingMethodArgs = {
-        1
-    };
     public static Vector3 TranslationAnchor { get; private set; }
     public static Vector3 Translation { get; private set; }
     public static Vector3 TranslationCalibrationOffset { get; private set; }
@@ -24,10 +15,7 @@ public class NOVRHeadsetData : NOVRBehaviour
     public static Quaternion Rotation { get; private set; }
     public static Quaternion RotationCalibrationOffset { get; private set; } = Quaternion.identity;
     public static Quaternion RotationError => Quaternion.Inverse(RotationCalibrationOffset) * Rotation;
-    
-    
-    
-    
+
     public static void SetAnchor(Vector3 anchor)
     {
         TranslationAnchor = anchor;
@@ -35,8 +23,8 @@ public class NOVRHeadsetData : NOVRBehaviour
 
     public static void CalibrateTranslation(CalibrationAxes calibrationAxes = CalibrationAxes.All, bool overrideExistingInNonCalibratedAxes = false)
     {
-        Vector3 currentError = -(Vector3)_trackingPositionMethod.Invoke(null, TrackingMethodArgs);
-        bool ov  = overrideExistingInNonCalibratedAxes;
+        Vector3 currentError = -GetHeadPosition();
+        bool ov = overrideExistingInNonCalibratedAxes;
         TranslationCalibrationOffset = new Vector3(
             (calibrationAxes & CalibrationAxes.X) != 0 ? currentError.x : ov ? TranslationCalibrationOffset.x : 0,
             (calibrationAxes & CalibrationAxes.Y) != 0 ? currentError.y : ov ? TranslationCalibrationOffset.y : 0,
@@ -45,10 +33,9 @@ public class NOVRHeadsetData : NOVRBehaviour
           + Vector3.right * ModConfiguration.Instance.CockpitHeadRightOffset.Value;
     }
 
-
     public static void CalibrateRotation(CalibrationAxes calibrationAxes = CalibrationAxes.Yaw, bool overrideExistingInNonCalibratedAxes = false)
     {
-        var currentRotation = (Quaternion)_trackingRotationMethod.Invoke(null, TrackingMethodArgs);
+        var currentRotation = GetHeadRotation();
         var currentEuler = currentRotation.eulerAngles;
         Vector3 currentError = new(
             -Mathf.DeltaAngle(0f, currentEuler.x),
@@ -56,43 +43,25 @@ public class NOVRHeadsetData : NOVRBehaviour
             -Mathf.DeltaAngle(0f, currentEuler.z)
         );
 
-        bool ov  = overrideExistingInNonCalibratedAxes;
+        bool ov = overrideExistingInNonCalibratedAxes;
         RotationCalibrationOffset = Quaternion.Euler(
             (calibrationAxes & CalibrationAxes.X) != 0 ? currentError.x : ov ? RotationCalibrationOffset.eulerAngles.x : 0,
             (calibrationAxes & CalibrationAxes.Y) != 0 ? currentError.y : ov ? RotationCalibrationOffset.eulerAngles.y : 0,
             (calibrationAxes & CalibrationAxes.Z) != 0 ? currentError.z : ov ? RotationCalibrationOffset.eulerAngles.z : 0
         );
     }
-    
-    
-    
+
     protected override void Awake()
     {
         base.Awake();
-        var inputTrackingType = Type.GetType("UnityEngine.XR.InputTracking, UnityEngine.XRModule") ??
-                                Type.GetType("UnityEngine.XR.InputTracking, UnityEngine.VRModule") ??
-                                Type.GetType("UnityEngine.VR.InputTracking, UnityEngine.VRModule") ??
-                                Type.GetType("UnityEngine.VR.InputTracking, UnityEngine");
-
-        _trackingRotationMethod = inputTrackingType?.GetMethod("GetLocalRotation");
-        _trackingPositionMethod = inputTrackingType?.GetMethod("GetLocalPosition");
-
-        if (_trackingRotationMethod == null || _trackingPositionMethod == null)
-        {
-            Debug.LogError("Failed to find InputTracking.GetLocalRotation/GetLocalPosition. Destroying UUVR Pose Driver.");
-            Destroy(this);
-            return;
-        }
         DisableCameraAutoTracking();
-
     }
-    
-    
+
     private void DisableCameraAutoTracking()
     {
         var camera = GetComponent<Camera>();
         if (!camera) return;
-        
+
         var cameraTrackingDisablingMethod = UuvrXrDevice.XrDeviceType?.GetMethod("DisableAutoXRCameraTracking");
 
         if (cameraTrackingDisablingMethod != null)
@@ -108,7 +77,7 @@ public class NOVRHeadsetData : NOVRBehaviour
             // camera.SetStereoViewMatrix(Camera.StereoscopicEye.Right, camera.worldToCameraMatrix);
         }
     }
-    
+
     protected override void OnBeforeRender()
     {
         base.OnBeforeRender();
@@ -127,10 +96,45 @@ public class NOVRHeadsetData : NOVRBehaviour
 
     private void UpdateTransform()
     {
-        if (_trackingRotationMethod != null && _trackingPositionMethod != null)
+        Translation = TranslationAnchor + TranslationCalibrationOffset + GetHeadPosition();
+        Rotation = RotationCalibrationOffset * GetHeadRotation();
+    }
+
+    private static Vector3 GetHeadPosition()
+    {
+        if (TryGetHeadDevice(out var device) &&
+            device.TryGetFeatureValue(CommonUsages.devicePosition, out var position))
         {
-            Translation = TranslationAnchor + TranslationCalibrationOffset + (Vector3)_trackingPositionMethod.Invoke(null, TrackingMethodArgs);
-            Rotation = RotationCalibrationOffset * (Quaternion)_trackingRotationMethod.Invoke(null, TrackingMethodArgs);
+            return position;
         }
+
+#pragma warning disable CS0618
+        return InputTracking.GetLocalPosition(XRNode.Head);
+#pragma warning restore CS0618
+    }
+
+    private static Quaternion GetHeadRotation()
+    {
+        if (TryGetHeadDevice(out var device) &&
+            device.TryGetFeatureValue(CommonUsages.deviceRotation, out var rotation))
+        {
+            return rotation;
+        }
+
+#pragma warning disable CS0618
+        return InputTracking.GetLocalRotation(XRNode.Head);
+#pragma warning restore CS0618
+    }
+
+    private static bool TryGetHeadDevice(out InputDevice device)
+    {
+        device = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+        if (device.isValid)
+        {
+            return true;
+        }
+
+        device = InputDevices.GetDeviceAtXRNode(XRNode.CenterEye);
+        return device.isValid;
     }
 }

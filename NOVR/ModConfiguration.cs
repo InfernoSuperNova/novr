@@ -83,7 +83,7 @@ public class ModConfiguration
         CockpitHeadForwardOffset = config.Bind(
             "Experimental",
             "Cockpit Head Forward Offset",
-            0.05f,
+            0.08f,
             "Offset in meters applied to the cockpit head forward vector. Helps keep the ejection seat bars out of your face.");
 
         CockpitHeadRightOffset = config.Bind(
