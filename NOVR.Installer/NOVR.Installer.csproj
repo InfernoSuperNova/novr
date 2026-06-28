@@ -19,13 +19,8 @@
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
     <InstallerDistDir>$(MSBuildThisFileDirectory)../dist</InstallerDistDir>
     <InstallerPublishIntermediateDir>$(MSBuildThisFileDirectory)$(BaseIntermediateOutputPath)publish</InstallerPublishIntermediateDir>
-    <LinuxInstallerSfxPath>$(InstallerDistDir)/NOVR.Installer-Linux.run</LinuxInstallerSfxPath>
-    <WindowsInstallerSfxPath>$(InstallerDistDir)/NOVR.Installer-Win.exe</WindowsInstallerSfxPath>
-    <LinuxInstallerPayloadPath>$(InstallerPublishIntermediateDir)/NOVR.Installer-Linux.tar.gz</LinuxInstallerPayloadPath>
-    <WindowsInstallerPayloadPath>$(InstallerPublishIntermediateDir)/NOVR.Installer-Win.zip</WindowsInstallerPayloadPath>
-    <WindowsSfxPublishDir>$(InstallerPublishIntermediateDir)/sfx-win-x64</WindowsSfxPublishDir>
-    <WindowsSfxStubPath>$(WindowsSfxPublishDir)/NOVR.Installer.Sfx.exe</WindowsSfxStubPath>
-    <WindowsSfxMarkerPath>$(InstallerPublishIntermediateDir)/sfx-marker.txt</WindowsSfxMarkerPath>
+    <LinuxInstallerBinaryPath>$(InstallerDistDir)/NOVR.Installer-Linux</LinuxInstallerBinaryPath>
+    <WindowsInstallerBinaryPath>$(InstallerDistDir)/NOVR.Installer-Win.exe</WindowsInstallerBinaryPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,18 +32,13 @@
   <Target Name="PublishInstallersToDist" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And '$(IsPublishingInstaller)' != 'true'">
     <MakeDir Directories="$(InstallerDistDir)" />
     <RemoveDir Directories="$(InstallerDistDir)/linux-x64;$(InstallerDistDir)/win-x64" />
-    <Delete Files="$(InstallerDistDir)/NOVR.Installer-Linux;$(InstallerDistDir)/NOVR.Installer-Linux.zip;$(InstallerDistDir)/NOVR.Installer-Win.zip;$(LinuxInstallerSfxPath);$(WindowsInstallerSfxPath)" />
+    <Delete Files="$(LinuxInstallerBinaryPath);$(WindowsInstallerBinaryPath)" />
 
     <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c $(Configuration) -r linux-x64 --no-restore -p:IsPublishingInstaller=true -p:PublishDir=&quot;$(InstallerPublishIntermediateDir)/linux-x64/&quot;" />
     <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c $(Configuration) -r win-x64 --no-restore -p:IsPublishingInstaller=true -p:PublishDir=&quot;$(InstallerPublishIntermediateDir)/win-x64/&quot;" />
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)../NOVR.Installer.Sfx/NOVR.Installer.Sfx.csproj&quot; -c $(Configuration) -r win-x64 -p:PublishDir=&quot;$(WindowsSfxPublishDir)/&quot;" />
 
-    <Exec Command="tar -czf &quot;$(LinuxInstallerPayloadPath)&quot; -C &quot;$(InstallerPublishIntermediateDir)/linux-x64&quot; ." />
-    <Exec Command="cat &quot;$(MSBuildThisFileDirectory)linux-sfx-stub.sh&quot; &quot;$(LinuxInstallerPayloadPath)&quot; &gt; &quot;$(LinuxInstallerSfxPath)&quot;" />
-    <Exec Command="chmod +x &quot;$(LinuxInstallerSfxPath)&quot;" />
-
-    <ZipDirectory SourceDirectory="$(InstallerPublishIntermediateDir)/win-x64" DestinationFile="$(WindowsInstallerPayloadPath)" Overwrite="true" />
-    <Exec Command="printf '\n__NOVR_SFX_PAYLOAD_v1__\n' &gt; &quot;$(WindowsSfxMarkerPath)&quot;" />
-    <Exec Command="cat &quot;$(WindowsSfxStubPath)&quot; &quot;$(WindowsSfxMarkerPath)&quot; &quot;$(WindowsInstallerPayloadPath)&quot; &gt; &quot;$(WindowsInstallerSfxPath)&quot;" />
+    <Copy SourceFiles="$(InstallerPublishIntermediateDir)/linux-x64/NOVR.Installer" DestinationFiles="$(LinuxInstallerBinaryPath)" />
+    <Copy SourceFiles="$(InstallerPublishIntermediateDir)/win-x64/NOVR.Installer.exe" DestinationFiles="$(WindowsInstallerBinaryPath)" />
+    <Exec Command="chmod +x &quot;$(LinuxInstallerBinaryPath)&quot;" Condition="'$(OS)' != 'Windows_NT'" />
   </Target>
 </Project>

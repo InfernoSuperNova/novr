@@ -10,7 +10,7 @@ NOVR is a reworked version of [UUVR](https://github.com/Raicuparta/uuvr) designe
 2. Download the latest installer from the [NOVR releases page](https://github.com/InfernoSuperNova/novr/releases/latest):
     - **Windows:** `NOVR.Installer-Win.exe`
     - **Linux/Proton:** `NOVR.Installer-Linux`
-3. Run the installer.
+3. Run the installer directly.
     - On Linux, you may need to make it executable first: `chmod +x NOVR.Installer-Linux`.
 4. If Nuclear Option is not found automatically, choose the game folder manually.
     - The selected folder must contain `NuclearOption_Data/Managed`.
@@ -89,7 +89,7 @@ These steps are for developers building NOVR from source.
 
 ## Installer development
 
-The GUI installer is built with Avalonia. Building it in `Release` automatically publishes single-file launchers for Linux and Windows into `dist/`:
+The GUI installer is built with Avalonia. Building it in `Release` automatically publishes raw installer binaries for Linux and Windows into `dist/`:
 
 ```bash
 dotnet build NOVR.Installer/NOVR.Installer.csproj -c Release
