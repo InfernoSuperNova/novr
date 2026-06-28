@@ -17,6 +17,7 @@ internal static class DynamicMapVrCursorPatch
         if (mapIcon == null ||
             !mapIcon.gameObject.activeInHierarchy ||
             mapIcon.iconImage == null ||
+            !mapIcon.iconImage.enabled ||
             !mapIcon.iconImage.raycastTarget)
         {
             return false;

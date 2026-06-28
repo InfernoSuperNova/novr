@@ -4,7 +4,6 @@ using NuclearOption.Networking;
 using NuclearOption.Networking.Lobbies;
 using NuclearOption.Workshop;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace NOVR.VrUi.Native;
@@ -20,6 +19,7 @@ public class NativeVrUiRoot : NOVRBehaviour
     private const float RequestedMenuTransitionSeconds = 0.5f;
     private const float MissionLaunchEnvironmentSuppressionSeconds = 8f;
     private const float RecenterDelaySeconds = 2.0f;
+    private const float LiveRecenterDelaySeconds = 3.0f;
     private const float AnchorResetAfterHiddenSeconds = 1.5f;
     private const float MinimumMenuCenterHeightBelowHeadMeters = -0.25f;
     private const float RecenterWidgetDistanceMeters = 1.35f;
@@ -65,6 +65,8 @@ public class NativeVrUiRoot : NOVRBehaviour
     private float _nextMainMenuScanTime;
     private float _pendingRecenterTime;
     private bool _recenterPending;
+    private float _pendingLiveRecenterTime;
+    private bool _liveRecenterPending;
     private float _lastNativeUiVisibleTime = -100f;
     private Vector3 _menuAnchorPosition;
     private Quaternion _menuAnchorRotation = Quaternion.identity;
@@ -95,6 +97,8 @@ public class NativeVrUiRoot : NOVRBehaviour
             _menuEnvironment?.Hide();
             ClearNativeCursorProjectionReference();
             SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
+            HandleRecenterShortcut(false);
+            UpdateLivePendingRecenter();
             return;
         }
 
@@ -199,6 +203,7 @@ public class NativeVrUiRoot : NOVRBehaviour
         HandleRecenterShortcut(shouldShowNativeUi);
         UpdatePlacement(shouldShowNativeUi);
         UpdatePendingRecenter(shouldShowNativeUi);
+        UpdateLivePendingRecenter();
         if (_root != null && _root.activeSelf != shouldShowNativeUi)
         {
             _root.SetActive(shouldShowNativeUi);
@@ -350,13 +355,34 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     private void HandleRecenterShortcut(bool shouldShowNativeUi)
     {
-        if (!shouldShowNativeUi) return;
+        if (!UnityEngine.Input.GetKeyDown(ModConfiguration.Instance.RecenterShortcut.Value)) return;
 
-        var keyboard = Keyboard.current;
-        if (keyboard?.homeKey.wasPressedThisFrame == true)
+        if (shouldShowNativeUi)
         {
             RecenterMenu();
         }
+        else
+        {
+            QueueLiveRecenter();
+        }
+    }
+
+    private void QueueLiveRecenter()
+    {
+        _liveRecenterPending = true;
+        _pendingLiveRecenterTime = Time.unscaledTime + LiveRecenterDelaySeconds;
+        Debug.Log($"[NOVR] Live recenter queued for {LiveRecenterDelaySeconds:0.0} seconds from now.");
+    }
+
+    private void UpdateLivePendingRecenter()
+    {
+        if (!_liveRecenterPending) return;
+        if (Time.unscaledTime < _pendingLiveRecenterTime) return;
+
+        NOVRHeadsetData.CalibrateTranslation();
+        NOVRHeadsetData.CalibrateRotation();
+        _liveRecenterPending = false;
+        Debug.Log("[NOVR] Live recenter applied.");
     }
 
     private void RecenterMenu()

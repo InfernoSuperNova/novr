@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NOVR.VrCamera;
 using NOVR.VrTogglers;
 using NOVR.VrUi;
@@ -24,6 +25,8 @@ public class Core : MonoBehaviour
     
     private Aircraft _aircraft;
     private Aircraft _oldAircraft;
+
+    public static string CurrentAircraftId { get; private set; }
 
     public static void Create()
     {
@@ -122,8 +125,23 @@ public class Core : MonoBehaviour
     {
         _oldAircraft = _aircraft;
         GameManager.GetLocalAircraft(out _aircraft);
-        if (_aircraft != _oldAircraft) NOVRHeadsetData.CalibrateTranslation();
+        if (_aircraft != _oldAircraft)
+        {
+            CurrentAircraftId = ResolveAircraftId(_aircraft);
+            if (ModConfiguration.Instance.TryGetSavedOffset(CurrentAircraftId, out var f, out var r))
+            {
+                ModConfiguration.Instance.CockpitHeadForwardOffset.Value = f;
+                ModConfiguration.Instance.CockpitHeadRightOffset.Value = r;
+            }
+            NOVRHeadsetData.CalibrateTranslation();
+        }
         CameraStateManager.enableMouseLook = false;
+    }
+
+    private static string ResolveAircraftId(Aircraft aircraft)
+    {
+        if (aircraft == null || aircraft.definition == null) return null;
+        return Regex.Replace(aircraft.definition.name, "[^a-zA-Z0-9_]", "_");
     }
 
 }
