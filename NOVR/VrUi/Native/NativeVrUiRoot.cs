@@ -80,16 +80,18 @@ public class NativeVrUiRoot : NOVRBehaviour
     public GameObject? OriginalMainCanvas => _mainCanvas;
     public NativeGameActionAdapter Actions => _actions;
 
-    private void OnEnable()
+    protected override void OnEnable()
     {
+        base.OnEnable();
         SceneManager.sceneLoaded += OnSceneLoaded;
         SceneManager.sceneUnloaded += OnSceneUnloaded;
     }
 
-    private void OnDisable()
+    protected override void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        base.OnDisable();
     }
 
     private void OnDestroy()
