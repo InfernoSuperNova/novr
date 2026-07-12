@@ -11,6 +11,7 @@ public class NOVRDynamicMapBehavior : MonoBehaviour
     private Image? _headReticleImage;
     private bool _mapWasMaximized;
     private bool _mouseProjectionApplied;
+    private float _nextHeadHoverUpdateTime;
 
     private void Start()
     {
@@ -51,11 +52,15 @@ public class NOVRDynamicMapBehavior : MonoBehaviour
         else if (!maximized && _mapWasMaximized)
         {
             ClearMapMouseProjection();
+            ClearHeadHover();
             SetHeadReticleVisible(false);
         }
 
         if (maximized)
+        {
             UpdateHeadReticle();
+            UpdateHeadHover();
+        }
 
         _mapWasMaximized = maximized;
     }
@@ -63,6 +68,7 @@ public class NOVRDynamicMapBehavior : MonoBehaviour
     private void OnDisable()
     {
         ClearMapMouseProjection();
+        ClearHeadHover();
         SetHeadReticleVisible(false);
         _mapWasMaximized = false;
     }
@@ -70,6 +76,7 @@ public class NOVRDynamicMapBehavior : MonoBehaviour
     private void OnDestroy()
     {
         ClearMapMouseProjection();
+        ClearHeadHover();
         if (_canvas != null)
             VrCanvasHitTester.Unregister(_canvas);
     }
@@ -83,7 +90,11 @@ public class NOVRDynamicMapBehavior : MonoBehaviour
         if (cursor == null)
             return;
 
-        cursor.SetProjectionReferenceRotation(_canvas.transform.rotation);
+        var camera = APIBus.CockpitHudCamera;
+        if (camera == null)
+            return;
+
+        cursor.SetMapProjectionReference(camera.transform.position, _canvas.transform.rotation);
         _mouseProjectionApplied = true;
     }
 
@@ -92,7 +103,7 @@ public class NOVRDynamicMapBehavior : MonoBehaviour
         if (!_mouseProjectionApplied)
             return;
 
-        VrUiCursor.I?.ClearProjectionReferenceRotation();
+        VrUiCursor.I?.ClearMapProjectionReference();
         _mouseProjectionApplied = false;
     }
 
@@ -151,6 +162,29 @@ public class NOVRDynamicMapBehavior : MonoBehaviour
         _headReticleTransform.position = worldPoint;
         _headReticleTransform.rotation = mapRect.rotation;
         SetHeadReticleVisible(true);
+    }
+
+    private void UpdateHeadHover()
+    {
+        if (_map == null || _map.mapImage == null ||
+            !NOVRTargetDesignatorBehavior.TryGetHeadAimRay(out var ray) ||
+            !MapSelection.TryGetLocalPoint(_map, ray, out var mapLocalPoint, out _))
+        {
+            ClearHeadHover();
+            return;
+        }
+
+        if (Time.unscaledTime < _nextHeadHoverUpdateTime)
+            return;
+
+        _nextHeadHoverUpdateTime = Time.unscaledTime + 0.1f;
+        MapSelection.TryFindClosestSelectableIcon(_map, mapLocalPoint, out var closest);
+        MapHoverCoordinator.Update(MapHoverSource.Head, _map, closest);
+    }
+
+    private void ClearHeadHover()
+    {
+        MapHoverCoordinator.Clear(MapHoverSource.Head, _map);
     }
 
     private void CopyHeadReticleAppearance(Image source)

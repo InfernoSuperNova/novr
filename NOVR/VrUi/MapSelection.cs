@@ -41,6 +41,45 @@ internal static class MapSelection
         Vector2 mapLocalPoint,
         global::MapIcon.ClickSource clickSource)
     {
+        if (!TryFindClosestIcon(map, mapLocalPoint, out var closest) || closest == null)
+            return false;
+
+        IsValidatedClickInProgress = true;
+        try
+        {
+            closest.ClickIcon(clickSource);
+        }
+        finally
+        {
+            IsValidatedClickInProgress = false;
+        }
+
+        return true;
+    }
+
+    internal static bool TryFindClosestIcon(
+        global::DynamicMap map,
+        Vector2 mapLocalPoint,
+        out global::MapIcon? closest)
+    {
+        return TryFindClosestIcon(map, mapLocalPoint, requireSelectable: false, out closest);
+    }
+
+    internal static bool TryFindClosestSelectableIcon(
+        global::DynamicMap map,
+        Vector2 mapLocalPoint,
+        out global::MapIcon? closest)
+    {
+        return TryFindClosestIcon(map, mapLocalPoint, requireSelectable: true, out closest);
+    }
+
+    private static bool TryFindClosestIcon(
+        global::DynamicMap map,
+        Vector2 mapLocalPoint,
+        bool requireSelectable,
+        out global::MapIcon? closest)
+    {
+        closest = null;
         if (map == null || map.mapImage == null)
             return false;
 
@@ -61,12 +100,13 @@ internal static class MapSelection
         var maxRadiusSquared = maxRadius * maxRadius;
 
         var icons = Object.FindObjectsOfType<global::MapIcon>();
-        global::MapIcon? closest = null;
         var closestSquared = float.MaxValue;
 
         foreach (var icon in icons)
         {
             if (icon == null || !icon.gameObject.activeInHierarchy)
+                continue;
+            if (requireSelectable && !IsSelectable(icon))
                 continue;
 
             var iconLocalPosition = mapRect.InverseTransformPoint(icon.transform.position);
@@ -82,16 +122,33 @@ internal static class MapSelection
         }
 
         if (closest == null || closestSquared > maxRadiusSquared)
+        {
+            closest = null;
             return false;
-
-        IsValidatedClickInProgress = true;
-        try
-        {
-            closest.ClickIcon(clickSource);
         }
-        finally
+
+        return true;
+    }
+
+    private static bool IsSelectable(global::MapIcon icon)
+    {
+        if (icon is global::UnitMapIcon unitIcon)
         {
-            IsValidatedClickInProgress = false;
+            var combatHud = SceneSingleton<CombatHUD>.i;
+            if (combatHud != null && combatHud.aircraft == unitIcon.unit)
+                return false;
+
+            var selector = SceneSingleton<TargetListSelector>.i;
+            return selector == null || !selector.CheckExclusions(unitIcon.unit);
+        }
+
+        if (icon is global::AirbaseMapIcon airbaseIcon)
+        {
+            var aircraft = SceneSingleton<CombatHUD>.i?.aircraft;
+            return (aircraft == null || aircraft.disabled) &&
+                   GameManager.gameResolution != GameResolution.Defeat &&
+                   airbaseIcon.airbase != null &&
+                   airbaseIcon.airbase.AnyHangarsAvailable();
         }
 
         return true;
