@@ -29,6 +29,11 @@ public class ModConfiguration
     public readonly ConfigEntry<bool> SavePositionTrigger;
     public readonly ConfigEntry<float> MapClickMaxRadius;
     public readonly ConfigEntry<float> HudMinimapOpacity;
+    public readonly ConfigEntry<bool> CombineNovrHudCameras;
+    public readonly ConfigEntry<bool> LogHudCameraConsolidation;
+    public readonly ConfigEntry<bool> DiagnosticMissionAutoStart;
+    public readonly ConfigEntry<string> DiagnosticMissionAutoStartQuery;
+    public readonly ConfigEntry<float> DiagnosticMissionAutoStartDelaySeconds;
 
     private readonly Dictionary<string, (ConfigEntry<float> Forward, ConfigEntry<float> Right)> _perPlaneEntries = new();
 
@@ -142,6 +147,37 @@ public class ModConfiguration
             1.0f,
             "Opacity of the in-cockpit minimap (the small map in the HUD, not the full clickable map). " +
             "1.0 is fully opaque, 0.0 hides it completely. Applies only when the minimap is shown; the full map view is unaffected.");
+
+        CombineNovrHudCameras = config.Bind(
+            "Performance",
+            "Combine NOVR HUD Cameras",
+            false,
+            "Render normal and cockpit-clipped VR HUD layers through one NOVR stereo overlay " +
+            "instead of two. Does not reduce headset refresh rate.");
+
+        LogHudCameraConsolidation = config.Bind(
+            "Diagnostics",
+            "Log HUD Camera Consolidation",
+            true,
+            "Log one compact HUD/post-processing camera callback summary every 10 seconds while testing.");
+
+        DiagnosticMissionAutoStart = config.Bind(
+            "Diagnostics",
+            "Diagnostic Mission Auto Start",
+            true,
+            "Automatically launch an offline single-player mission when menus are unusable during diagnostics.");
+
+        DiagnosticMissionAutoStartQuery = config.Bind(
+            "Diagnostics",
+            "Diagnostic Mission Auto Start Query",
+            "Furball",
+            "Case-insensitive mission name fragment used by diagnostic auto-start.");
+
+        DiagnosticMissionAutoStartDelaySeconds = config.Bind(
+            "Diagnostics",
+            "Diagnostic Mission Auto Start Delay Seconds",
+            5.0f,
+            "Real-time seconds after NOVR starts before attempting diagnostic mission auto-start.");
 
         SavePositionTrigger.SettingChanged += (_, _) =>
         {
