@@ -4,6 +4,7 @@ using NuclearOption.Networking;
 using NuclearOption.Networking.Lobbies;
 using NuclearOption.Workshop;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace NOVR.VrUi.Native;
@@ -21,6 +22,8 @@ public class NativeVrUiRoot : NOVRBehaviour
     private const float RecenterDelaySeconds = 2.0f;
     private const float LiveRecenterDelaySeconds = 3.0f;
     private const float AnchorResetAfterHiddenSeconds = 1.5f;
+    private const string MainMenuSceneName = "MainMenu";
+    private const string MainMenuScenePath = "Assets/Scenes/MainMenu/MainMenu.unity";
     private const float MinimumMenuCenterHeightBelowHeadMeters = -0.25f;
     private const float RecenterWidgetDistanceMeters = 1.35f;
     private const float RecenterWidgetVerticalOffsetMeters = -0.42f;
@@ -63,6 +66,7 @@ public class NativeVrUiRoot : NOVRBehaviour
     private bool _missionLaunchPending;
     private float _missionLaunchRequestTime;
     private float _nextMainMenuScanTime;
+    private bool _wasInMenu;
     private float _pendingRecenterTime;
     private bool _recenterPending;
     private float _pendingLiveRecenterTime;
@@ -76,6 +80,18 @@ public class NativeVrUiRoot : NOVRBehaviour
     public GameObject? OriginalMainCanvas => _mainCanvas;
     public NativeGameActionAdapter Actions => _actions;
 
+    private void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        SceneManager.sceneUnloaded += OnSceneUnloaded;
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+    }
+
     private void OnDestroy()
     {
         if (_canvas != null)
@@ -86,6 +102,12 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     private void Start()
     {
+        _wasInMenu = GameManager.gameState == GameState.Menu;
+        if (_wasInMenu)
+        {
+            _nextMainMenuScanTime = 0f;
+        }
+
         RefreshEnabledState();
     }
 
@@ -93,10 +115,10 @@ public class NativeVrUiRoot : NOVRBehaviour
     {
         _pointerState.Update(VrUiCursor.I);
         EnsureRoot();
-        ScanForMainMenuCanvas();
 
         if (GameManager.gameState != GameState.Menu)
         {
+            _wasInMenu = false;
             RestoreOriginalMainCanvas();
             if (_root != null)
             {
@@ -109,6 +131,14 @@ public class NativeVrUiRoot : NOVRBehaviour
             UpdateLivePendingRecenter();
             return;
         }
+
+        if (!_wasInMenu)
+        {
+            _wasInMenu = true;
+            _nextMainMenuScanTime = 0f;
+        }
+
+        ScanForMainMenuCanvas();
 
         if (_missionLaunchPending &&
             Time.unscaledTime - _missionLaunchRequestTime > MissionLaunchEnvironmentSuppressionSeconds)
@@ -659,6 +689,7 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     private void ScanForMainMenuCanvas()
     {
+        if (GameManager.gameState != GameState.Menu || _mainCanvas != null) return;
         if (Time.unscaledTime < _nextMainMenuScanTime) return;
 
         _nextMainMenuScanTime = Time.unscaledTime + MainMenuScanIntervalSeconds;
@@ -669,6 +700,41 @@ public class NativeVrUiRoot : NOVRBehaviour
         _mainCanvas = mainCanvas;
         _actions.SetOriginalMainCanvas(_mainCanvas);
         _mainMenuShell?.SetOriginalMainCanvas(_mainCanvas);
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode loadSceneMode)
+    {
+        if (!IsMainMenuScene(scene)) return;
+
+        InvalidateMainCanvas();
+        _nextMainMenuScanTime = 0f;
+
+        // sceneLoaded normally fires after the scene's objects have awakened. If game
+        // state has already reached Menu, acquire immediately; otherwise Update will
+        // make the first menu-only attempt when the state transition completes.
+        ScanForMainMenuCanvas();
+    }
+
+    private void OnSceneUnloaded(Scene scene)
+    {
+        if (!IsMainMenuScene(scene)) return;
+
+        InvalidateMainCanvas();
+        _nextMainMenuScanTime = 0f;
+    }
+
+    private void InvalidateMainCanvas()
+    {
+        RestoreOriginalMainCanvas();
+        _mainCanvas = null;
+        _actions.SetOriginalMainCanvas(null);
+        _mainMenuShell?.SetOriginalMainCanvas(null);
+    }
+
+    private static bool IsMainMenuScene(Scene scene)
+    {
+        return scene.IsValid() &&
+               (scene.name == MainMenuSceneName || scene.path == MainMenuScenePath);
     }
 
     private static GameObject? FindMainCanvas()
