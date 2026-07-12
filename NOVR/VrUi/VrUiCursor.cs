@@ -777,9 +777,6 @@ public class VrUiCursor: NOVRBehaviour
         var mapImageRect = mapImage.GetComponent<RectTransform>();
         if (mapImageRect == null) return;
 
-        var rectSize = mapImageRect.rect.size;
-        if (rectSize.x < 1f || rectSize.y < 1f) return;
-
         var camera = APIBus.CockpitHudCamera;
         if (camera == null) return;
 
@@ -790,38 +787,9 @@ public class VrUiCursor: NOVRBehaviour
             return;
         }
 
-        var cursorNorm = new Vector2(cursorLocal.x / rectSize.x, cursorLocal.y / rectSize.y);
-        float maxRadius = ModConfiguration.Instance != null
-            ? ModConfiguration.Instance.MapClickMaxRadius.Value
-            : 0.05f;
-        float maxRadiusSqr = maxRadius * maxRadius;
-
-        var icons = UnityEngine.Object.FindObjectsOfType<global::MapIcon>();
-        global::MapIcon? closest = null;
-        float closestSqr = float.MaxValue;
-
-        foreach (var icon in icons)
-        {
-            if (icon == null || !icon.gameObject.activeInHierarchy) continue;
-
-            Vector2 iconScreenPoint = camera.WorldToScreenPoint(icon.transform.position);
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    mapImageRect, iconScreenPoint, camera, out var iconLocal))
-            {
-                continue;
-            }
-
-            var iconNorm = new Vector2(iconLocal.x / rectSize.x, iconLocal.y / rectSize.y);
-            float sqr = (iconNorm - cursorNorm).sqrMagnitude;
-
-            if (sqr < closestSqr)
-            {
-                closestSqr = sqr;
-                closest = icon;
-            }
-        }
-
-        if (closest != null && closestSqr <= maxRadiusSqr)
-            closest.ClickIcon(global::MapIcon.ClickSource.Mouse);
+        MapSelection.TrySelectClosestIcon(
+            dynamicMap,
+            cursorLocal,
+            global::MapIcon.ClickSource.Mouse);
     }
 }

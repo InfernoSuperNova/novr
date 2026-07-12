@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using NOVR.VrUi;
+using NOVR.VrUi.SpecialBehavior;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -19,6 +20,17 @@ internal static class DynamicMapVrCursorPatch
         [HarmonyPrefix]
         private static bool Prefix(global::DynamicMap __instance)
         {
+            if (global::DynamicMap.mapMaximized &&
+                NOVRTargetDesignatorBehavior.TryGetHeadAimRay(out var headAimRay) &&
+                MapSelection.TryGetLocalPoint(__instance, headAimRay, out var mapLocalPoint, out _))
+            {
+                MapSelection.TrySelectClosestIcon(
+                    __instance,
+                    mapLocalPoint,
+                    global::MapIcon.ClickSource.Controller);
+                return false;
+            }
+
             var cursor = VrUiCursor.I;
             if (cursor != null && cursor.IsActive)
             {
@@ -37,6 +49,12 @@ internal static class DynamicMapVrCursorPatch
         [HarmonyPrefix]
         private static bool Prefix(global::DynamicMap __instance, ref bool __result)
         {
+            if (MapSelection.IsValidatedClickInProgress)
+            {
+                __result = true;
+                return false;
+            }
+
             var cursor = VrUiCursor.I;
             if (cursor != null && cursor.IsActive)
             {
