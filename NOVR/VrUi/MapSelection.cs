@@ -1,10 +1,33 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NOVR.VrUi;
 
 internal static class MapSelection
 {
+    private static readonly List<global::MapIcon> CachedIcons = new();
+    private static global::DynamicMap? _cachedMap;
+    private static bool _iconCacheInitialized;
+
     internal static bool IsValidatedClickInProgress { get; private set; }
+
+    internal static void InvalidateIconCache(global::DynamicMap map)
+    {
+        if (_cachedMap != null && _cachedMap != map)
+            return;
+
+        CachedIcons.Clear();
+        _cachedMap = map;
+        _iconCacheInitialized = false;
+    }
+
+    internal static void RegisterIcon(global::MapIcon icon)
+    {
+        if (!_iconCacheInitialized || icon == null || CachedIcons.Contains(icon))
+            return;
+
+        CachedIcons.Add(icon);
+    }
 
     internal static bool TryGetLocalPoint(
         global::DynamicMap map,
@@ -99,12 +122,19 @@ internal static class MapSelection
             : 0.05f;
         var maxRadiusSquared = maxRadius * maxRadius;
 
-        var icons = Object.FindObjectsOfType<global::MapIcon>();
+        EnsureIconCache(map);
         var closestSquared = float.MaxValue;
 
-        foreach (var icon in icons)
+        for (var index = CachedIcons.Count - 1; index >= 0; index--)
         {
-            if (icon == null || !icon.gameObject.activeInHierarchy)
+            var icon = CachedIcons[index];
+            if (icon == null)
+            {
+                CachedIcons.RemoveAt(index);
+                continue;
+            }
+
+            if (!icon.gameObject.activeInHierarchy)
                 continue;
             if (requireSelectable && !IsSelectable(icon))
                 continue;
@@ -128,6 +158,22 @@ internal static class MapSelection
         }
 
         return true;
+    }
+
+    private static void EnsureIconCache(global::DynamicMap map)
+    {
+        if (_cachedMap != map)
+        {
+            CachedIcons.Clear();
+            _cachedMap = map;
+            _iconCacheInitialized = false;
+        }
+
+        if (_iconCacheInitialized)
+            return;
+
+        CachedIcons.AddRange(Object.FindObjectsOfType<global::MapIcon>());
+        _iconCacheInitialized = true;
     }
 
     private static bool IsSelectable(global::MapIcon icon)

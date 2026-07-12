@@ -60,6 +60,33 @@ internal sealed class HierarchicalCpuDiagnostics : MonoBehaviour
     private ProfilerRecorder _gcAllocatedRecorder;
     private bool _gcAllocatedRecorderValid;
     private Harmony? _diagnosticHarmony;
+    private CursorBreakdown _currentCursorBreakdown;
+
+    internal static void RecordVrUiCursorBreakdown(
+        long totalTicks,
+        long poseTicks,
+        long screenTicks,
+        long pointerTicks,
+        long mapHoverTicks,
+        long mapScanTicks,
+        long mapApplyTicks,
+        long animationTicks,
+        long clickTicks)
+    {
+        var current = _current;
+        if (current == null) return;
+
+        current._currentCursorBreakdown.Add(
+            totalTicks * TickToMs,
+            poseTicks * TickToMs,
+            screenTicks * TickToMs,
+            pointerTicks * TickToMs,
+            mapHoverTicks * TickToMs,
+            mapScanTicks * TickToMs,
+            mapApplyTicks * TickToMs,
+            animationTicks * TickToMs,
+            clickTicks * TickToMs);
+    }
 
     private void OnEnable()
     {
@@ -528,7 +555,8 @@ internal sealed class HierarchicalCpuDiagnostics : MonoBehaviour
                 managedHeapBytes - _lastManagedHeapBytes,
                 novrTotal,
                 topNovrMethod,
-                topNovrMs);
+                topNovrMs,
+                _currentCursorBreakdown);
 
             _lastGc0 = gc0;
             _lastGc1 = gc1;
@@ -551,6 +579,7 @@ internal sealed class HierarchicalCpuDiagnostics : MonoBehaviour
         _currentFrameValues.Clear();
         _currentCameraValues.Clear();
         _currentNovrMethodValues.Clear();
+        _currentCursorBreakdown = default;
         _instrumentedFrameStart = now;
     }
 
@@ -657,18 +686,21 @@ internal sealed class HierarchicalCpuDiagnostics : MonoBehaviour
         private readonly long _allocatedBytes, _heapDeltaBytes;
         private readonly double _novrTotal, _topNovrMs;
         private readonly string _topNovrMethod;
+        private readonly CursorBreakdown _cursorBreakdown;
 
         public FrameSnapshot(double frame, double update, double fixedUpdate, double preLate, double postLate,
             double scripts, double physics, double send, double finish, double pipeline, double world, double hud,
             double post, double offscreen, double cpuRender, double gpu,
             int gc0, int gc1, int gc2, long allocatedBytes, long heapDeltaBytes,
-            double novrTotal, string topNovrMethod, double topNovrMs)
+            double novrTotal, string topNovrMethod, double topNovrMs,
+            CursorBreakdown cursorBreakdown)
         {
             _frame = frame; _update = update; _fixed = fixedUpdate; _preLate = preLate; _postLate = postLate;
             _scripts = scripts; _physics = physics; _send = send; _finish = finish; _pipeline = pipeline;
             _world = world; _hud = hud; _post = post; _offscreen = offscreen; _cpuRender = cpuRender; _gpu = gpu;
             _gc0 = gc0; _gc1 = gc1; _gc2 = gc2; _allocatedBytes = allocatedBytes; _heapDeltaBytes = heapDeltaBytes;
             _novrTotal = novrTotal; _topNovrMethod = topNovrMethod; _topNovrMs = topNovrMs;
+            _cursorBreakdown = cursorBreakdown;
         }
 
         public string Format() =>
@@ -677,7 +709,36 @@ internal sealed class HierarchicalCpuDiagnostics : MonoBehaviour
             $"cams[world/hud/post/off]={_world:0.00}/{_hud:0.00}/{_post:0.00}/{_offscreen:0.00} " +
             $"cpuRender={_cpuRender:0.00} gpu={_gpu:0.00} " +
             $"gc={_gc0}/{_gc1}/{_gc2} allocKB={(_allocatedBytes < 0 ? -1 : _allocatedBytes / 1024.0):0.0} " +
-            $"heapDeltaKB={_heapDeltaBytes / 1024.0:0.0} novr={_novrTotal:0.00} topNovr={_topNovrMethod}:{_topNovrMs:0.00}";
+            $"heapDeltaKB={_heapDeltaBytes / 1024.0:0.0} novr={_novrTotal:0.00} topNovr={_topNovrMethod}:{_topNovrMs:0.00} " +
+            _cursorBreakdown.Format();
+    }
+
+    private struct CursorBreakdown
+    {
+        private double _total, _pose, _screen, _pointer, _mapHover, _mapScan, _mapApply, _animation, _click;
+
+        public void Add(double total, double pose, double screen, double pointer, double mapHover,
+            double mapScan, double mapApply, double animation, double click)
+        {
+            _total += total;
+            _pose += pose;
+            _screen += screen;
+            _pointer += pointer;
+            _mapHover += mapHover;
+            _mapScan += mapScan;
+            _mapApply += mapApply;
+            _animation += animation;
+            _click += click;
+        }
+
+        public string Format()
+        {
+            var measured = _pose + _screen + _pointer + _mapHover + _animation + _click;
+            var other = Math.Max(0.0, _total - measured);
+            return $"cursor[total/other/pose/screen/pointer/map/scan/apply/anim/click]=" +
+                   $"{_total:0.00}/{other:0.00}/{_pose:0.00}/{_screen:0.00}/{_pointer:0.00}/" +
+                   $"{_mapHover:0.00}/{_mapScan:0.00}/{_mapApply:0.00}/{_animation:0.00}/{_click:0.00}";
+        }
     }
 
     private sealed class MarkerRecorder : IDisposable

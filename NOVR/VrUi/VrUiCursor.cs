@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using UnityEngine.XR;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace NOVR.VrUi;
 
@@ -208,6 +209,29 @@ public class VrUiCursor: NOVRBehaviour
 
     private void Update()
     {
+        var updateStart = Stopwatch.GetTimestamp();
+        var timing = default(CursorUpdateTiming);
+        try
+        {
+            UpdateCore(ref timing);
+        }
+        finally
+        {
+            HierarchicalCpuDiagnostics.RecordVrUiCursorBreakdown(
+                Stopwatch.GetTimestamp() - updateStart,
+                timing.PoseTicks,
+                timing.ScreenTicks,
+                timing.PointerTicks,
+                timing.MapHoverTicks,
+                timing.MapScanTicks,
+                timing.MapApplyTicks,
+                timing.AnimationTicks,
+                timing.ClickTicks);
+        }
+    }
+
+    private void UpdateCore(ref CursorUpdateTiming timing)
+    {
         if (!Application.isFocused)
         {
             ClearMapHover();
@@ -278,8 +302,11 @@ public class VrUiCursor: NOVRBehaviour
                 XRNode.RightHand) || VrControllerInput.GetTriggerWasPressedThisFrame(
                 XRNode.LeftHand);
 
+            var operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAnglesFromController();
+            timing.PoseTicks += Stopwatch.GetTimestamp() - operationStart;
 
+            operationStart = Stopwatch.GetTimestamp();
             Vector2 screenPoint = GetScreenPoint();
             if (!_isOffscreen)
             {
@@ -296,16 +323,29 @@ public class VrUiCursor: NOVRBehaviour
                     _feedProjM02 = p.m02; _feedProjM12 = p.m12;
                 }
 
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
+                operationStart = Stopwatch.GetTimestamp();
                 FirePointerEvents(screenPoint, _triggerIsPressed);
+                timing.PointerTicks += Stopwatch.GetTimestamp() - operationStart;
+            }
+            else
+            {
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
             }
 
-            UpdateMapHover();
+            operationStart = Stopwatch.GetTimestamp();
+            UpdateMapHover(ref timing);
+            timing.MapHoverTicks += Stopwatch.GetTimestamp() - operationStart;
 
+            operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAnimation(triggerDownThisFrame, _triggerIsPressed);
+            timing.AnimationTicks += Stopwatch.GetTimestamp() - operationStart;
 
             if (triggerDownThisFrame)
             {
+                operationStart = Stopwatch.GetTimestamp();
                 ForwardMapClickIfNeeded();
+                timing.ClickTicks += Stopwatch.GetTimestamp() - operationStart;
             }
 
             _triggerWasPressed = _triggerIsPressed;
@@ -321,10 +361,13 @@ public class VrUiCursor: NOVRBehaviour
                 return;
             }
 
+            var operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAngles();
+            timing.PoseTicks += Stopwatch.GetTimestamp() - operationStart;
             var realMouse = _realMouse;
             if (realMouse == null) return;
 
+            operationStart = Stopwatch.GetTimestamp();
             Vector2 screenPoint = GetScreenPoint();
             if (!_isOffscreen)
             {
@@ -340,16 +383,29 @@ public class VrUiCursor: NOVRBehaviour
                     _feedProjM00 = p.m00; _feedProjM11 = p.m11;
                     _feedProjM02 = p.m02; _feedProjM12 = p.m12;
                 }
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
+                operationStart = Stopwatch.GetTimestamp();
                 FirePointerEvents(screenPoint, realMouse.leftButton.isPressed);
+                timing.PointerTicks += Stopwatch.GetTimestamp() - operationStart;
+            }
+            else
+            {
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
             }
 
-            UpdateMapHover();
+            operationStart = Stopwatch.GetTimestamp();
+            UpdateMapHover(ref timing);
+            timing.MapHoverTicks += Stopwatch.GetTimestamp() - operationStart;
 
+            operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAnimation(realMouse.leftButton.wasPressedThisFrame, realMouse.leftButton.isPressed);
+            timing.AnimationTicks += Stopwatch.GetTimestamp() - operationStart;
 
             if (realMouse.leftButton.wasPressedThisFrame)
             {
+                operationStart = Stopwatch.GetTimestamp();
                 ForwardMapClickIfNeeded();
+                timing.ClickTicks += Stopwatch.GetTimestamp() - operationStart;
             }
         }
     }
@@ -681,7 +737,7 @@ public class VrUiCursor: NOVRBehaviour
         return null;
     }
 
-    private void UpdateMapHover()
+    private void UpdateMapHover(ref CursorUpdateTiming timing)
     {
         if (!global::DynamicMap.mapMaximized ||
             !_hasActiveCanvas ||
@@ -719,8 +775,12 @@ public class VrUiCursor: NOVRBehaviour
             return;
 
         _nextMapHoverUpdateTime = Time.unscaledTime + 0.1f;
+        var operationStart = Stopwatch.GetTimestamp();
         MapSelection.TryFindClosestSelectableIcon(map, cursorLocal, out var closest);
+        timing.MapScanTicks += Stopwatch.GetTimestamp() - operationStart;
+        operationStart = Stopwatch.GetTimestamp();
         MapHoverCoordinator.Update(MapHoverSource.Cursor, map, closest);
+        timing.MapApplyTicks += Stopwatch.GetTimestamp() - operationStart;
     }
 
     private void ClearMapHover()
@@ -868,5 +928,17 @@ public class VrUiCursor: NOVRBehaviour
             dynamicMap,
             cursorLocal,
             global::MapIcon.ClickSource.Mouse);
+    }
+
+    private struct CursorUpdateTiming
+    {
+        public long PoseTicks;
+        public long ScreenTicks;
+        public long PointerTicks;
+        public long MapHoverTicks;
+        public long MapScanTicks;
+        public long MapApplyTicks;
+        public long AnimationTicks;
+        public long ClickTicks;
     }
 }

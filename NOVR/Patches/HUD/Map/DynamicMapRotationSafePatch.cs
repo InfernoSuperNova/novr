@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarmonyLib;
+using NOVR.VrUi;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -31,6 +32,7 @@ internal static class DynamicMapRotationSafePatch
         [HarmonyPostfix]
         private static void Postfix(global::DynamicMap __instance)
         {
+            MapSelection.InvalidateIconCache(__instance);
             _minimapCanvasGroup = __instance.gameObject.GetComponent<CanvasGroup>();
             if (_minimapCanvasGroup == null)
             {
