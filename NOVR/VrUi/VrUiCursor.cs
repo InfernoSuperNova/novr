@@ -115,6 +115,7 @@ public class VrUiCursor: NOVRBehaviour
 
     // Direct pointer event state
     private PointerEventData? _pointerEventData;
+    private readonly List<RaycastResult> _pointerRaycastResults = new();
     private GameObject? _hovered;
     private GameObject? _pointerPress;
     private bool _wasLeftDown;
@@ -435,9 +436,6 @@ public class VrUiCursor: NOVRBehaviour
 
         if (_activeCanvas == null || !_hasActiveCanvas) return;
 
-        var raycaster = _activeCanvas.GetComponent<GraphicRaycaster>();
-        if (raycaster == null) return;
-
         var ped = _pointerEventData;
         if (ped == null)
         {
@@ -449,16 +447,26 @@ public class VrUiCursor: NOVRBehaviour
         ped.delta = Vector2.zero;
         ped.button = PointerEventData.InputButton.Left;
 
-        var results = new List<RaycastResult>();
-        raycaster.Raycast(ped, results);
+        _pointerRaycastResults.Clear();
+        es.RaycastAll(ped, _pointerRaycastResults);
 
-        // Get the event root (the ancestor that has Selectable or IPointerClickHandler)
+        // TMP dropdowns create their list and click-blocker as temporary nested canvases.
+        // Query all EventSystem raycasters, then keep only results in the active UI root so
+        // those popup canvases work without allowing unrelated VR canvases to intercept.
+        var activeRootCanvas = _activeCanvas.rootCanvas;
         GameObject? current = null;
-        if (results.Count > 0)
+        RaycastResult currentRaycast = default;
+        for (var index = 0; index < _pointerRaycastResults.Count; index++)
         {
-            current = GetEventRoot(results[0].gameObject);
-            ped.pointerCurrentRaycast = results[0];
+            var result = _pointerRaycastResults[index];
+            if (!BelongsToCanvasRoot(result, activeRootCanvas))
+                continue;
+
+            current = GetEventRoot(result.gameObject);
+            currentRaycast = result;
+            break;
         }
+        ped.pointerCurrentRaycast = currentRaycast;
 
         // Hover enter / exit — use hierarchy-walking version
         if (current != _hovered)
@@ -492,6 +500,7 @@ public class VrUiCursor: NOVRBehaviour
                 _pointerPress = current;
                 ped.pressPosition = screenPoint;
                 ped.pointerPress = current;
+                ped.pointerPressRaycast = currentRaycast;
                 ped.clickTime = Time.unscaledTime;
                 ped.clickCount = 1;
                 if (current != null)
@@ -526,6 +535,15 @@ public class VrUiCursor: NOVRBehaviour
         }
 
         _wasLeftDown = isLeftDown;
+    }
+
+    private static bool BelongsToCanvasRoot(RaycastResult result, Canvas activeRootCanvas)
+    {
+        if (result.module is not GraphicRaycaster graphicRaycaster)
+            return false;
+
+        var resultCanvas = graphicRaycaster.GetComponent<Canvas>();
+        return resultCanvas != null && resultCanvas.rootCanvas == activeRootCanvas;
     }
 
     private static GameObject? GetEventRoot(GameObject? obj)
