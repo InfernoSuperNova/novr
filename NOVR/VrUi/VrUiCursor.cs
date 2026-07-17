@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using UnityEngine.XR;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace NOVR.VrUi;
 
@@ -67,11 +68,15 @@ public class VrUiCursor: NOVRBehaviour
     private float _lastCursorClickTime = -100f;
     private bool _hasProjectionReferenceOverride;
     private Quaternion _projectionReferenceRotation = Quaternion.identity;
+    private bool _hasMapProjectionReferenceOverride;
+    private Quaternion _mapProjectionReferenceRotation = Quaternion.identity;
+    private Vector3 _mapProjectionReferenceOrigin;
 
     private Mouse? _realMouse;
     private bool _isOffscreen;
     private Canvas? _activeCanvas;
     private bool _hasActiveCanvas;
+    private float _nextMapHoverUpdateTime;
     private Ray _lastProbeRay;
     private Vector3 _lastCursorTargetPos;
     private string _lastCanvasName = "";
@@ -110,6 +115,7 @@ public class VrUiCursor: NOVRBehaviour
 
     // Direct pointer event state
     private PointerEventData? _pointerEventData;
+    private readonly List<RaycastResult> _pointerRaycastResults = new();
     private GameObject? _hovered;
     private GameObject? _pointerPress;
     private bool _wasLeftDown;
@@ -172,6 +178,18 @@ public class VrUiCursor: NOVRBehaviour
         _hasProjectionReferenceOverride = false;
     }
 
+    public void SetMapProjectionReference(Vector3 origin, Quaternion referenceRotation)
+    {
+        _mapProjectionReferenceOrigin = origin;
+        _mapProjectionReferenceRotation = referenceRotation;
+        _hasMapProjectionReferenceOverride = true;
+    }
+
+    public void ClearMapProjectionReference()
+    {
+        _hasMapProjectionReferenceOverride = false;
+    }
+
     // Routes a synthetic click to whatever the cursor is over, by reusing the
     // proven left-click selection path (closest-icon lookup that ignores
     // iconImage.raycastTarget). The EventSystem pointer pipeline approach
@@ -192,8 +210,32 @@ public class VrUiCursor: NOVRBehaviour
 
     private void Update()
     {
+        var updateStart = Stopwatch.GetTimestamp();
+        var timing = default(CursorUpdateTiming);
+        try
+        {
+            UpdateCore(ref timing);
+        }
+        finally
+        {
+            HierarchicalCpuDiagnostics.RecordVrUiCursorBreakdown(
+                Stopwatch.GetTimestamp() - updateStart,
+                timing.PoseTicks,
+                timing.ScreenTicks,
+                timing.PointerTicks,
+                timing.MapHoverTicks,
+                timing.MapScanTicks,
+                timing.MapApplyTicks,
+                timing.AnimationTicks,
+                timing.ClickTicks);
+        }
+    }
+
+    private void UpdateCore(ref CursorUpdateTiming timing)
+    {
         if (!Application.isFocused)
         {
+            ClearMapHover();
             if (_cursor != null && _cursor.activeSelf)
                 _cursor.SetActive(false);
             return;
@@ -261,8 +303,11 @@ public class VrUiCursor: NOVRBehaviour
                 XRNode.RightHand) || VrControllerInput.GetTriggerWasPressedThisFrame(
                 XRNode.LeftHand);
 
+            var operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAnglesFromController();
+            timing.PoseTicks += Stopwatch.GetTimestamp() - operationStart;
 
+            operationStart = Stopwatch.GetTimestamp();
             Vector2 screenPoint = GetScreenPoint();
             if (!_isOffscreen)
             {
@@ -279,14 +324,29 @@ public class VrUiCursor: NOVRBehaviour
                     _feedProjM02 = p.m02; _feedProjM12 = p.m12;
                 }
 
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
+                operationStart = Stopwatch.GetTimestamp();
                 FirePointerEvents(screenPoint, _triggerIsPressed);
+                timing.PointerTicks += Stopwatch.GetTimestamp() - operationStart;
+            }
+            else
+            {
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
             }
 
+            operationStart = Stopwatch.GetTimestamp();
+            UpdateMapHover(ref timing);
+            timing.MapHoverTicks += Stopwatch.GetTimestamp() - operationStart;
+
+            operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAnimation(triggerDownThisFrame, _triggerIsPressed);
+            timing.AnimationTicks += Stopwatch.GetTimestamp() - operationStart;
 
             if (triggerDownThisFrame)
             {
+                operationStart = Stopwatch.GetTimestamp();
                 ForwardMapClickIfNeeded();
+                timing.ClickTicks += Stopwatch.GetTimestamp() - operationStart;
             }
 
             _triggerWasPressed = _triggerIsPressed;
@@ -296,15 +356,19 @@ public class VrUiCursor: NOVRBehaviour
             _controllerModeActive = false;
             if (!IsRealCursorVisible())
             {
+                ClearMapHover();
                 if (_cursor != null)
                     _cursor.SetActive(false);
                 return;
             }
 
+            var operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAngles();
+            timing.PoseTicks += Stopwatch.GetTimestamp() - operationStart;
             var realMouse = _realMouse;
             if (realMouse == null) return;
 
+            operationStart = Stopwatch.GetTimestamp();
             Vector2 screenPoint = GetScreenPoint();
             if (!_isOffscreen)
             {
@@ -320,14 +384,29 @@ public class VrUiCursor: NOVRBehaviour
                     _feedProjM00 = p.m00; _feedProjM11 = p.m11;
                     _feedProjM02 = p.m02; _feedProjM12 = p.m12;
                 }
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
+                operationStart = Stopwatch.GetTimestamp();
                 FirePointerEvents(screenPoint, realMouse.leftButton.isPressed);
+                timing.PointerTicks += Stopwatch.GetTimestamp() - operationStart;
+            }
+            else
+            {
+                timing.ScreenTicks += Stopwatch.GetTimestamp() - operationStart;
             }
 
+            operationStart = Stopwatch.GetTimestamp();
+            UpdateMapHover(ref timing);
+            timing.MapHoverTicks += Stopwatch.GetTimestamp() - operationStart;
+
+            operationStart = Stopwatch.GetTimestamp();
             UpdateCursorAnimation(realMouse.leftButton.wasPressedThisFrame, realMouse.leftButton.isPressed);
+            timing.AnimationTicks += Stopwatch.GetTimestamp() - operationStart;
 
             if (realMouse.leftButton.wasPressedThisFrame)
             {
+                operationStart = Stopwatch.GetTimestamp();
                 ForwardMapClickIfNeeded();
+                timing.ClickTicks += Stopwatch.GetTimestamp() - operationStart;
             }
         }
     }
@@ -357,9 +436,6 @@ public class VrUiCursor: NOVRBehaviour
 
         if (_activeCanvas == null || !_hasActiveCanvas) return;
 
-        var raycaster = _activeCanvas.GetComponent<GraphicRaycaster>();
-        if (raycaster == null) return;
-
         var ped = _pointerEventData;
         if (ped == null)
         {
@@ -371,16 +447,26 @@ public class VrUiCursor: NOVRBehaviour
         ped.delta = Vector2.zero;
         ped.button = PointerEventData.InputButton.Left;
 
-        var results = new List<RaycastResult>();
-        raycaster.Raycast(ped, results);
+        _pointerRaycastResults.Clear();
+        es.RaycastAll(ped, _pointerRaycastResults);
 
-        // Get the event root (the ancestor that has Selectable or IPointerClickHandler)
+        // TMP dropdowns create their list and click-blocker as temporary nested canvases.
+        // Query all EventSystem raycasters, then keep only results in the active UI root so
+        // those popup canvases work without allowing unrelated VR canvases to intercept.
+        var activeRootCanvas = _activeCanvas.rootCanvas;
         GameObject? current = null;
-        if (results.Count > 0)
+        RaycastResult currentRaycast = default;
+        for (var index = 0; index < _pointerRaycastResults.Count; index++)
         {
-            current = GetEventRoot(results[0].gameObject);
-            ped.pointerCurrentRaycast = results[0];
+            var result = _pointerRaycastResults[index];
+            if (!BelongsToCanvasRoot(result, activeRootCanvas))
+                continue;
+
+            current = GetEventRoot(result.gameObject);
+            currentRaycast = result;
+            break;
         }
+        ped.pointerCurrentRaycast = currentRaycast;
 
         // Hover enter / exit — use hierarchy-walking version
         if (current != _hovered)
@@ -414,6 +500,7 @@ public class VrUiCursor: NOVRBehaviour
                 _pointerPress = current;
                 ped.pressPosition = screenPoint;
                 ped.pointerPress = current;
+                ped.pointerPressRaycast = currentRaycast;
                 ped.clickTime = Time.unscaledTime;
                 ped.clickCount = 1;
                 if (current != null)
@@ -448,6 +535,15 @@ public class VrUiCursor: NOVRBehaviour
         }
 
         _wasLeftDown = isLeftDown;
+    }
+
+    private static bool BelongsToCanvasRoot(RaycastResult result, Canvas activeRootCanvas)
+    {
+        if (result.module is not GraphicRaycaster graphicRaycaster)
+            return false;
+
+        var resultCanvas = graphicRaycaster.GetComponent<Canvas>();
+        return resultCanvas != null && resultCanvas.rootCanvas == activeRootCanvas;
     }
 
     private static GameObject? GetEventRoot(GameObject? obj)
@@ -538,7 +634,9 @@ public class VrUiCursor: NOVRBehaviour
         var mousePos = mouse.position.ReadValue();
 
         Transform anchor = GetAnchorTransform();
-        Vector3 probeOrigin = anchor != null ? anchor.position : camera.transform.position;
+        Vector3 probeOrigin = _hasMapProjectionReferenceOverride
+            ? _mapProjectionReferenceOrigin
+            : anchor != null ? anchor.position : camera.transform.position;
         Quaternion referenceRotation = GetProjectionReferenceRotation();
 
         // Compute mouse-driven world direction
@@ -634,6 +732,11 @@ public class VrUiCursor: NOVRBehaviour
 
     private Quaternion GetProjectionReferenceRotation()
     {
+        if (_hasMapProjectionReferenceOverride)
+        {
+            return _mapProjectionReferenceRotation;
+        }
+
         if (_hasProjectionReferenceOverride)
         {
             return _projectionReferenceRotation;
@@ -645,11 +748,63 @@ public class VrUiCursor: NOVRBehaviour
 
     private Transform GetAnchorTransform()
     {
-        if (_hasProjectionReferenceOverride)
+        if (_hasMapProjectionReferenceOverride || _hasProjectionReferenceOverride)
         {
             return APIBus.CockpitHudReference?.transform;
         }
         return null;
+    }
+
+    private void UpdateMapHover(ref CursorUpdateTiming timing)
+    {
+        if (!global::DynamicMap.mapMaximized ||
+            !_hasActiveCanvas ||
+            _activeCanvas == null ||
+            _activeCanvas.name != "MapCanvas" ||
+            _cursor == null)
+        {
+            ClearMapHover();
+            return;
+        }
+
+        var map = SceneSingleton<global::DynamicMap>.i;
+        if (map == null || map.mapImage == null)
+        {
+            ClearMapHover();
+            return;
+        }
+
+        var mapRect = map.mapImage.GetComponent<RectTransform>();
+        if (mapRect == null)
+        {
+            ClearMapHover();
+            return;
+        }
+
+        var cursorLocalPosition = mapRect.InverseTransformPoint(_cursor.transform.position);
+        var cursorLocal = new Vector2(cursorLocalPosition.x, cursorLocalPosition.y);
+        if (!mapRect.rect.Contains(cursorLocal))
+        {
+            ClearMapHover();
+            return;
+        }
+
+        if (Time.unscaledTime < _nextMapHoverUpdateTime)
+            return;
+
+        _nextMapHoverUpdateTime = Time.unscaledTime + 0.1f;
+        var operationStart = Stopwatch.GetTimestamp();
+        MapSelection.TryFindClosestSelectableIcon(map, cursorLocal, out var closest);
+        timing.MapScanTicks += Stopwatch.GetTimestamp() - operationStart;
+        operationStart = Stopwatch.GetTimestamp();
+        MapHoverCoordinator.Update(MapHoverSource.Cursor, map, closest);
+        timing.MapApplyTicks += Stopwatch.GetTimestamp() - operationStart;
+    }
+
+    private void ClearMapHover()
+    {
+        var map = SceneSingleton<global::DynamicMap>.i;
+        MapHoverCoordinator.Clear(MapHoverSource.Cursor, map);
     }
     
     private void EnsureCursorCanvas(Camera uiCaptureCamera)
@@ -777,9 +932,6 @@ public class VrUiCursor: NOVRBehaviour
         var mapImageRect = mapImage.GetComponent<RectTransform>();
         if (mapImageRect == null) return;
 
-        var rectSize = mapImageRect.rect.size;
-        if (rectSize.x < 1f || rectSize.y < 1f) return;
-
         var camera = APIBus.CockpitHudCamera;
         if (camera == null) return;
 
@@ -790,38 +942,21 @@ public class VrUiCursor: NOVRBehaviour
             return;
         }
 
-        var cursorNorm = new Vector2(cursorLocal.x / rectSize.x, cursorLocal.y / rectSize.y);
-        float maxRadius = ModConfiguration.Instance != null
-            ? ModConfiguration.Instance.MapClickMaxRadius.Value
-            : 0.05f;
-        float maxRadiusSqr = maxRadius * maxRadius;
+        MapSelection.TrySelectClosestIcon(
+            dynamicMap,
+            cursorLocal,
+            global::MapIcon.ClickSource.Mouse);
+    }
 
-        var icons = UnityEngine.Object.FindObjectsOfType<global::MapIcon>();
-        global::MapIcon? closest = null;
-        float closestSqr = float.MaxValue;
-
-        foreach (var icon in icons)
-        {
-            if (icon == null || !icon.gameObject.activeInHierarchy) continue;
-
-            Vector2 iconScreenPoint = camera.WorldToScreenPoint(icon.transform.position);
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    mapImageRect, iconScreenPoint, camera, out var iconLocal))
-            {
-                continue;
-            }
-
-            var iconNorm = new Vector2(iconLocal.x / rectSize.x, iconLocal.y / rectSize.y);
-            float sqr = (iconNorm - cursorNorm).sqrMagnitude;
-
-            if (sqr < closestSqr)
-            {
-                closestSqr = sqr;
-                closest = icon;
-            }
-        }
-
-        if (closest != null && closestSqr <= maxRadiusSqr)
-            closest.ClickIcon(global::MapIcon.ClickSource.Mouse);
+    private struct CursorUpdateTiming
+    {
+        public long PoseTicks;
+        public long ScreenTicks;
+        public long PointerTicks;
+        public long MapHoverTicks;
+        public long MapScanTicks;
+        public long MapApplyTicks;
+        public long AnimationTicks;
+        public long ClickTicks;
     }
 }

@@ -106,31 +106,45 @@ public class UIBehaviorPatcher : NOVRBehaviour
             _toReactivate.Clear();
         }
 
-        foreach (var kvp in _toPatch_component)
+        // AddComponent below can synchronously run a patched constructor which enqueues
+        // another component. Iterate a snapshot and remove only entries we actually finish.
+        foreach (var kvp in _toPatch_component.ToArray())
         {
-            Debug.Log($"UIBehaviorPatcher: Adding {kvp.Value.Name} to {kvp.Key.name} (component patch)");
-            if (kvp.Key.name == "" || kvp.Key.name == null)
+            var comp = kvp.Key;
+            if (comp == null)
+            {
+                _toPatch_component.Remove(comp!);
+                continue;
+            }
+
+            Debug.Log($"UIBehaviorPatcher: Adding {kvp.Value.Name} to {comp.name} (component patch)");
+            if (string.IsNullOrEmpty(comp.name))
             {
                 Debug.LogWarning($"Component not loaded fully?");
-                return;
+                continue;
             }
-            var comp = kvp.Key;
             var toAdd = kvp.Value;
             if (!comp.gameObject.TryGetComponent(toAdd, out Component _))
             {
                 AddAndBounceIfActive(comp.gameObject, toAdd);
             }
+
+            if (_toPatch_component.TryGetValue(comp, out var queuedType) && queuedType == toAdd)
+                _toPatch_component.Remove(comp);
         }
-        _toPatch_component.Clear();
 
 
         if (_toPatch_name.Count > 0)
         {
-            foreach (var go in Resources.FindObjectsOfTypeAll(typeof(GameObject)) as GameObject[])
+            var nameBatch = _toPatch_name.ToArray();
+            foreach (var go in Resources.FindObjectsOfTypeAll(typeof(GameObject)) as GameObject[] ?? Array.Empty<GameObject>())
             {
+                if (go == null) continue;
 
                 var name = go.name;
-                if (_toPatch_name.TryGetValue(name, out var toAddList))
+                var batchEntry = nameBatch.FirstOrDefault(entry => entry.Key == name);
+                var toAddList = batchEntry.Value;
+                if (toAddList != null)
                 {
                     foreach (var toAdd in toAddList)
                     {
@@ -139,7 +153,12 @@ public class UIBehaviorPatcher : NOVRBehaviour
                     }
                 }
             }
-            _toPatch_name.Clear();
+
+            foreach (var entry in nameBatch)
+            {
+                if (_toPatch_name.TryGetValue(entry.Key, out var queuedTypes) && ReferenceEquals(queuedTypes, entry.Value))
+                    _toPatch_name.Remove(entry.Key);
+            }
         }
     }
     

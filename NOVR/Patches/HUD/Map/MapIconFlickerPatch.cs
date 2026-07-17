@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using HarmonyLib;
+using NOVR.VrUi;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,6 +21,7 @@ internal static class MapIconFlickerPatch
         [HarmonyPostfix]
         private static void Postfix(global::UnitMapIcon __instance)
         {
+            MapSelection.RegisterIcon(__instance);
             if (__instance != null && __instance.iconImage != null)
             {
                 __instance.iconImage.enabled = false;
@@ -52,6 +54,7 @@ internal static class MapIconFlickerPatch
         [HarmonyPostfix]
         private static void Postfix(global::AirbaseMapIcon __instance)
         {
+            MapSelection.RegisterIcon(__instance);
             if (__instance != null && __instance.iconImage != null)
             {
                 __instance.iconImage.enabled = false;

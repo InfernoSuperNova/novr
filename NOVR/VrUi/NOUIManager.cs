@@ -4,6 +4,7 @@ using HarmonyLib;
 using NOVR.VrCamera;
 using NOVR.VrUi.Native;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace NOVR.VrUi;
@@ -15,10 +16,16 @@ public class NOUIManager : NOVRBehaviour
     // CockpitAndExternal). The clipped HUD camera must render right after it, because the
     // next camera in the stack (postProcessingRenderer) clears the depth buffer.
     private const string CockpitRendererCameraName = "cockpitRenderer";
+    private const float CameraDiagnosticIntervalSeconds = 10f;
     private static readonly FieldInfo? ClearDepthField = AccessTools.Field(typeof(UniversalAdditionalCameraData), "m_ClearDepth");
     private Camera? _cockpitHudCamera;
     private Camera? _clippedHudCamera;
     private GameObject? _smoothedForwardReference;
+    private Camera? _lastMainCamera;
+    private bool _hudCamerasCombined;
+    private float _nextCameraDiagnosticTime;
+    private int _dedicatedHudCameraCalls;
+    private int _clippedHudCameraCalls;
 
     public static NOUIManager I { get; private set; }
 
@@ -41,11 +48,14 @@ public class NOUIManager : NOVRBehaviour
     {
         base.Awake();
         APIBus.OnMainCameraChanged += OnMainCameraChanged;
+        RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
+        _nextCameraDiagnosticTime = Time.unscaledTime + CameraDiagnosticIntervalSeconds;
     }
 
     private void OnDestroy()
     {
         APIBus.OnMainCameraChanged -= OnMainCameraChanged;
+        RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
     }
 
     private void Start()
@@ -69,8 +79,10 @@ public class NOUIManager : NOVRBehaviour
 
     private void Update()
     {
-        ConfigureUiCameras();
+        MaintainHudRenderingPath();
+        EnforceClippedCameraStackPosition();
         UpdateSmoothedPosition();
+        MaybeLogCameraDiagnostics();
     }
 
     private void UpdateSmoothedPosition()
@@ -127,34 +139,142 @@ public class NOUIManager : NOVRBehaviour
 
     private void OnMainCameraChanged(Camera? previous, Camera? newCam)
     {
+        var cockpitHudCamera = CockpitHudCamera;
+        var clippedHudCamera = ClippedHudCamera;
+        RemoveUiCamerasFromStack(previous, cockpitHudCamera, clippedHudCamera);
+        RemoveUiCamerasFromStack(_lastMainCamera, cockpitHudCamera, clippedHudCamera);
+
         if (newCam == null)
         {
+            _lastMainCamera = null;
             return;
         }
 
         var cameraStack = newCam.gameObject.GetComponent<UniversalAdditionalCameraData>()?.cameraStack;
-        if (cameraStack == null)
+        if (cameraStack != null)
         {
-            return;
+            RemoveDuplicateUiCameraEntries(cameraStack, cockpitHudCamera);
+            RemoveDuplicateUiCameraEntries(cameraStack, clippedHudCamera);
+            if (!cameraStack.Contains(clippedHudCamera))
+            {
+                cameraStack.Add(clippedHudCamera);
+            }
+
+            ConfigureHudRenderingPath(cameraStack, cockpitHudCamera, clippedHudCamera);
         }
 
-        // Append only; EnforceClippedCameraStackPosition orders the stack every frame.
-        if (!cameraStack.Contains(ClippedHudCamera))
-        {
-            cameraStack.Add(ClippedHudCamera);
-        }
-
-        if (!cameraStack.Contains(CockpitHudCamera))
-        {
-            cameraStack.Add(CockpitHudCamera);
-        }
+        _lastMainCamera = newCam;
+        EnforceClippedCameraStackPosition();
     }
 
     private void ConfigureUiCameras()
     {
         ConfigureUiCamera(CockpitHudCamera);
         ConfigureClippedHudCamera(ClippedHudCamera);
+        var mainCamera = APIBus.MainCamera;
+        var cameraStack = mainCamera != null
+            ? mainCamera.GetComponent<UniversalAdditionalCameraData>()?.cameraStack
+            : null;
+        if (mainCamera != null && cameraStack != null)
+        {
+            ConfigureHudRenderingPath(cameraStack, CockpitHudCamera, ClippedHudCamera);
+        }
         EnforceClippedCameraStackPosition();
+    }
+
+    private void MaintainHudRenderingPath()
+    {
+        var mainCamera = APIBus.MainCamera;
+        if (mainCamera == null)
+        {
+            return;
+        }
+
+        var cameraStack = mainCamera.GetComponent<UniversalAdditionalCameraData>()?.cameraStack;
+        if (cameraStack == null)
+        {
+            return;
+        }
+
+        ConfigureHudRenderingPath(cameraStack, CockpitHudCamera, ClippedHudCamera);
+    }
+
+    private void ConfigureHudRenderingPath(
+        System.Collections.Generic.List<Camera> cameraStack,
+        Camera cockpitHudCamera,
+        Camera clippedHudCamera)
+    {
+        var combine = ModConfiguration.Instance.CombineNovrHudCameras.Value;
+        var clippedLayerMask = 1 << (int)LayerHelper.GetVrUiClippedHudLayer();
+        var normalLayerMask = 1 << (int)LayerHelper.GetVrUiLayer();
+        var desiredClippedMask = combine ? clippedLayerMask | normalLayerMask : clippedLayerMask;
+        if (clippedHudCamera.cullingMask != desiredClippedMask)
+        {
+            clippedHudCamera.cullingMask = desiredClippedMask;
+        }
+
+        if (!cameraStack.Contains(clippedHudCamera))
+        {
+            cameraStack.Add(clippedHudCamera);
+        }
+
+        if (combine)
+        {
+            RemoveAllCameraEntries(cameraStack, cockpitHudCamera);
+        }
+        else if (!cameraStack.Contains(cockpitHudCamera))
+        {
+            cameraStack.Add(cockpitHudCamera);
+        }
+
+        if (_hudCamerasCombined != combine)
+        {
+            _hudCamerasCombined = combine;
+            NOVRPlugin.LogSource?.LogMessage(
+                $"[HudCameraConsolidation] mode={(combine ? "combined-novr" : "dedicated")}");
+        }
+    }
+
+    private static void RemoveAllCameraEntries(
+        System.Collections.Generic.List<Camera> cameraStack,
+        Camera camera)
+    {
+        for (var i = cameraStack.Count - 1; i >= 0; i--)
+        {
+            if (cameraStack[i] == camera)
+            {
+                cameraStack.RemoveAt(i);
+            }
+        }
+    }
+
+    private void OnEndCameraRendering(ScriptableRenderContext context, Camera camera)
+    {
+        if (camera == _cockpitHudCamera)
+        {
+            _dedicatedHudCameraCalls++;
+        }
+        else if (camera == _clippedHudCamera)
+        {
+            _clippedHudCameraCalls++;
+        }
+    }
+
+    private void MaybeLogCameraDiagnostics()
+    {
+        if (!ModConfiguration.Instance.LogHudCameraConsolidation.Value ||
+            Time.unscaledTime < _nextCameraDiagnosticTime)
+        {
+            return;
+        }
+
+        NOVRPlugin.LogSource?.LogMessage(
+            $"[HudCameraConsolidation] mode={(_hudCamerasCombined ? "combined-novr" : "dedicated")} " +
+            $"dedicatedHudCalls={_dedicatedHudCameraCalls} clippedHudCalls={_clippedHudCameraCalls}");
+
+        _dedicatedHudCameraCalls = 0;
+        _clippedHudCameraCalls = 0;
+        _nextCameraDiagnosticTime = Time.unscaledTime + CameraDiagnosticIntervalSeconds;
     }
 
     // The clipped HUD camera must render directly after the game's cockpitRenderer to see
@@ -222,5 +342,51 @@ public class NOUIManager : NOVRBehaviour
         // The far plane just has to contain the 1000m slices.
         camera.nearClipPlane = 0.01f;
         camera.farClipPlane = 10000f;
+    }
+
+    private static void RemoveUiCamerasFromStack(
+        Camera? mainCamera,
+        Camera cockpitHudCamera,
+        Camera clippedHudCamera)
+    {
+        if (mainCamera == null)
+        {
+            return;
+        }
+
+        var cameraStack = mainCamera.gameObject.GetComponent<UniversalAdditionalCameraData>()?.cameraStack;
+        if (cameraStack == null)
+        {
+            return;
+        }
+
+        for (var i = cameraStack.Count - 1; i >= 0; i--)
+        {
+            if (cameraStack[i] == cockpitHudCamera || cameraStack[i] == clippedHudCamera)
+            {
+                cameraStack.RemoveAt(i);
+            }
+        }
+    }
+
+    private static void RemoveDuplicateUiCameraEntries(
+        System.Collections.Generic.List<Camera> cameraStack,
+        Camera uiCamera)
+    {
+        var found = false;
+        for (var i = cameraStack.Count - 1; i >= 0; i--)
+        {
+            if (cameraStack[i] != uiCamera)
+            {
+                continue;
+            }
+
+            if (found)
+            {
+                cameraStack.RemoveAt(i);
+            }
+
+            found = true;
+        }
     }
 }

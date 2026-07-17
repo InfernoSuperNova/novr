@@ -5,6 +5,7 @@ using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 
 namespace NOVR.VrCamera;
 
@@ -13,17 +14,62 @@ public class VrCameraManager: MonoBehaviour
     private const string NuclearOptionMainCameraName = "Main Camera";
     private const string NuclearOptionMenuCameraName = "Menu Camera";
     private const string VrCameraChildName = "NOVR Main Camera";
+    private const float ActiveCameraScanIntervalSeconds = 0.25f;
+    private const float IdleCameraScanIntervalSeconds = 2f;
     private static readonly string[] TrackedChildNames = {"cockpitRenderer", "postProcessingRenderer"};
 
     public static HashSet<Camera> IgnoredCameras = new();
-    
-    private void Update() // Todo: Make me behave on events if possible
+
+    private bool _cameraScanDirty = true;
+    private bool _hasTrackedMainCamera;
+    private float _nextCameraScanTime;
+
+    private void Awake()
+    {
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+    }
+
+    private void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+    }
+
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        _cameraScanDirty = true;
+        _hasTrackedMainCamera = false;
+        _nextCameraScanTime = 0f;
+    }
+
+    private void Update()
+    {
+        if (!_cameraScanDirty && Time.unscaledTime < _nextCameraScanTime)
+        {
+            return;
+        }
+
+        _cameraScanDirty = false;
+        _nextCameraScanTime = Time.unscaledTime +
+                              (_hasTrackedMainCamera
+                                  ? IdleCameraScanIntervalSeconds
+                                  : ActiveCameraScanIntervalSeconds);
+
+        ScanCameras();
+    }
+
+    private void ScanCameras()
     {
         Camera[] cameras = new Camera[Camera.allCamerasCount];
         Camera.GetAllCameras(cameras);
 
+        _hasTrackedMainCamera = false;
         foreach (var camera in cameras)
         {
+            if (camera == null)
+            {
+                continue;
+            }
+
             var gameObject = camera.gameObject;
             if (gameObject.name is not (NuclearOptionMainCameraName or NuclearOptionMenuCameraName))
             {
@@ -36,6 +82,7 @@ public class VrCameraManager: MonoBehaviour
                 if (existingTrackedCamera != null)
                 {
                     EnsureTrackedMainCameraRig(camera, existingTrackedCamera);
+                    _hasTrackedMainCamera = true;
                     continue;
                 }
             }
@@ -48,11 +95,15 @@ public class VrCameraManager: MonoBehaviour
             if (gameObject.name == NuclearOptionMainCameraName)
             {
                 SetUpMainCameraRig(camera);
+                _hasTrackedMainCamera = true;
             }
             else
             {
                 HandleChildCameras(camera);
-                gameObject.AddComponent<VrCamera>();
+                if (gameObject.GetComponent<VrCamera>() == null)
+                {
+                    gameObject.AddComponent<VrCamera>();
+                }
                 IgnoredCameras.Add(camera);
             }
         }
@@ -90,7 +141,9 @@ public class VrCameraManager: MonoBehaviour
         var rootUniversalAdditionalCameraData = rootCamera.GetComponent<UniversalAdditionalCameraData>();
         
         if (universalAdditionalCameraData != null && rootUniversalAdditionalCameraData != null)
-            universalAdditionalCameraData.cameraStack.AddRange(rootUniversalAdditionalCameraData.cameraStack);
+        {
+            AddUniqueCameras(universalAdditionalCameraData.cameraStack, rootUniversalAdditionalCameraData.cameraStack);
+        }
         
         
         var rootAudioListener = rootCamera.GetComponent<AudioListener>();
@@ -104,6 +157,7 @@ public class VrCameraManager: MonoBehaviour
         rootCamera.tag = "Untagged";
         rootCamera.enabled = false;
         ReparentTrackedChildren(rootCamera.transform, trackedCameraObject.transform);
+        NormalizeTrackedCameraStack(rootCamera, trackedCamera);
 
         trackedCameraObject.AddComponent<VrCamera>();
 
@@ -138,6 +192,9 @@ public class VrCameraManager: MonoBehaviour
             trackedCamera.gameObject.AddComponent<VrCamera>();
         }
 
+        ReparentTrackedChildren(rootCamera.transform, trackedCamera.transform);
+        NormalizeTrackedCameraStack(rootCamera, trackedCamera);
+
         IgnoredCameras.Add(rootCamera);
         IgnoredCameras.Add(trackedCamera);
     }
@@ -159,6 +216,78 @@ public class VrCameraManager: MonoBehaviour
             if (child != null)
             {
                 child.SetParent(trackedCameraTransform, false);
+            }
+        }
+    }
+
+    private static void NormalizeTrackedCameraStack(Camera rootCamera, Camera trackedCamera)
+    {
+        var additionalCameraData = trackedCamera.GetComponent<UniversalAdditionalCameraData>();
+        if (additionalCameraData == null)
+        {
+            return;
+        }
+
+        additionalCameraData.renderType = CameraRenderType.Base;
+        additionalCameraData.allowXRRendering = true;
+
+        var stack = additionalCameraData.cameraStack;
+        if (stack == null)
+        {
+            return;
+        }
+
+        RemoveInvalidOrDuplicateStackEntries(stack, rootCamera, trackedCamera);
+
+        foreach (var childName in TrackedChildNames)
+        {
+            var child = trackedCamera.transform.Find(childName);
+            var childCamera = child != null ? child.GetComponent<Camera>() : null;
+            if (childCamera == null)
+            {
+                continue;
+            }
+
+            var childData = childCamera.GetComponent<UniversalAdditionalCameraData>();
+            if (childData != null)
+            {
+                childData.renderType = CameraRenderType.Overlay;
+            }
+
+            AddUniqueCamera(stack, childCamera);
+        }
+    }
+
+    private static void AddUniqueCameras(List<Camera> destination, IEnumerable<Camera> source)
+    {
+        foreach (var camera in source)
+        {
+            AddUniqueCamera(destination, camera);
+        }
+    }
+
+    private static void AddUniqueCamera(List<Camera> stack, Camera camera)
+    {
+        if (camera == null || stack.Contains(camera))
+        {
+            return;
+        }
+
+        stack.Add(camera);
+    }
+
+    private static void RemoveInvalidOrDuplicateStackEntries(List<Camera> stack, Camera rootCamera, Camera trackedCamera)
+    {
+        var seen = new HashSet<Camera>();
+        for (var i = stack.Count - 1; i >= 0; i--)
+        {
+            var stackCamera = stack[i];
+            if (stackCamera == null ||
+                stackCamera == rootCamera ||
+                stackCamera == trackedCamera ||
+                !seen.Add(stackCamera))
+            {
+                stack.RemoveAt(i);
             }
         }
     }

@@ -85,6 +85,10 @@ if (NOVRPlugin.LogSource != null)
         {
             gameObject.AddComponent<XrStartupDiagnosticsBehaviour>();
         }
+
+        EnsureDiagnosticMissionAutoStart();
+        EnsureCompactPerformanceDiagnostics();
+        EnsureHierarchicalCpuDiagnostics();
         
         _vrTogglerManager = new VrTogglerManager();
         
@@ -95,7 +99,43 @@ if (NOVRPlugin.LogSource != null)
     private void Update()
     {
         EnsureNativeMenuEnvironmentAssetCache();
+        EnsureDiagnosticMissionAutoStart();
+        EnsureCompactPerformanceDiagnostics();
+        EnsureHierarchicalCpuDiagnostics();
         UpdatePhysicsRate();
+    }
+
+    private void EnsureHierarchicalCpuDiagnostics()
+    {
+        if (!ModConfiguration.Instance.LogHudCameraConsolidation.Value ||
+            gameObject.GetComponent<HierarchicalCpuDiagnostics>() != null)
+        {
+            return;
+        }
+
+        gameObject.AddComponent<HierarchicalCpuDiagnostics>();
+    }
+
+    private void EnsureCompactPerformanceDiagnostics()
+    {
+        if (!ModConfiguration.Instance.LogHudCameraConsolidation.Value ||
+            gameObject.GetComponent<CompactPerformanceDiagnostics>() != null)
+        {
+            return;
+        }
+
+        gameObject.AddComponent<CompactPerformanceDiagnostics>();
+    }
+
+    private void EnsureDiagnosticMissionAutoStart()
+    {
+        if (!ModConfiguration.Instance.DiagnosticMissionAutoStart.Value ||
+            gameObject.GetComponent<DiagnosticMissionAutoStart>() != null)
+        {
+            return;
+        }
+
+        gameObject.AddComponent<DiagnosticMissionAutoStart>();
     }
 
     private void EnsureNativeMenuEnvironmentAssetCache()
