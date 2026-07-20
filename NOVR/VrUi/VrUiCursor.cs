@@ -67,6 +67,7 @@ public class VrUiCursor: NOVRBehaviour
     private bool _cursorOverInteractive;
     private float _lastCursorClickTime = -100f;
     private bool _hasProjectionReferenceOverride;
+    private Vector3 _projectionReferenceOrigin;
     private Quaternion _projectionReferenceRotation = Quaternion.identity;
     private bool _hasMapProjectionReferenceOverride;
     private Quaternion _mapProjectionReferenceRotation = Quaternion.identity;
@@ -169,6 +170,14 @@ public class VrUiCursor: NOVRBehaviour
 
     public void SetProjectionReferenceRotation(Quaternion referenceRotation)
     {
+        if (!_hasProjectionReferenceOverride)
+        {
+            var camera = UiCamera;
+            _projectionReferenceOrigin = camera != null
+                ? camera.transform.position
+                : GetDefaultProjectionOrigin();
+        }
+
         _projectionReferenceRotation = referenceRotation;
         _hasProjectionReferenceOverride = true;
     }
@@ -633,10 +642,11 @@ public class VrUiCursor: NOVRBehaviour
 
         var mousePos = mouse.position.ReadValue();
 
-        Transform anchor = GetAnchorTransform();
         Vector3 probeOrigin = _hasMapProjectionReferenceOverride
             ? _mapProjectionReferenceOrigin
-            : anchor != null ? anchor.position : camera.transform.position;
+            : _hasProjectionReferenceOverride
+                ? _projectionReferenceOrigin
+                : GetDefaultProjectionOrigin();
         Quaternion referenceRotation = GetProjectionReferenceRotation();
 
         // Compute mouse-driven world direction
@@ -742,17 +752,16 @@ public class VrUiCursor: NOVRBehaviour
             return _projectionReferenceRotation;
         }
 
-        var camera = UiCamera;
-        return camera != null ? camera.transform.rotation : Quaternion.identity;
+        return transform.parent != null
+            ? transform.parent.rotation
+            : Quaternion.identity;
     }
 
-    private Transform GetAnchorTransform()
+    private Vector3 GetDefaultProjectionOrigin()
     {
-        if (_hasMapProjectionReferenceOverride || _hasProjectionReferenceOverride)
-        {
-            return APIBus.CockpitHudReference?.transform;
-        }
-        return null;
+        return transform.parent != null
+            ? transform.parent.position
+            : Vector3.zero;
     }
 
     private void UpdateMapHover(ref CursorUpdateTiming timing)
