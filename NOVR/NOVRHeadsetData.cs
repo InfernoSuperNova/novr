@@ -7,6 +7,8 @@ namespace NOVR;
 [DefaultExecutionOrder(-100)]
 public class NOVRHeadsetData : NOVRBehaviour
 {
+    private static Vector3 _recenteredTranslation;
+
     public static Vector3 TranslationAnchor { get; private set; }
     public static Vector3 Translation { get; private set; }
     public static Vector3 TranslationCalibrationOffset { get; private set; }
@@ -23,7 +25,8 @@ public class NOVRHeadsetData : NOVRBehaviour
 
     public static void CalibrateTranslation(CalibrationAxes calibrationAxes = CalibrationAxes.All, bool overrideExistingInNonCalibratedAxes = false)
     {
-        Vector3 currentError = -GetHeadPosition();
+        var headPosition = GetHeadPosition();
+        Vector3 currentError = -headPosition;
         bool ov = overrideExistingInNonCalibratedAxes;
         TranslationCalibrationOffset = new Vector3(
             (calibrationAxes & CalibrationAxes.X) != 0 ? currentError.x : ov ? TranslationCalibrationOffset.x : 0,
@@ -31,6 +34,7 @@ public class NOVRHeadsetData : NOVRBehaviour
             (calibrationAxes & CalibrationAxes.Z) != 0 ? currentError.z : ov ? TranslationCalibrationOffset.z : 0
         ) + Vector3.forward * ModConfiguration.Instance.CockpitHeadForwardOffset.Value
           + Vector3.right * ModConfiguration.Instance.CockpitHeadRightOffset.Value;
+        _recenteredTranslation = TranslationCalibrationOffset + headPosition;
     }
 
     public static void CalibrateRotation(CalibrationAxes calibrationAxes = CalibrationAxes.Yaw, bool overrideExistingInNonCalibratedAxes = false)
@@ -91,7 +95,10 @@ public class NOVRHeadsetData : NOVRBehaviour
 
     private void UpdateTransform()
     {
-        Translation = TranslationAnchor + TranslationCalibrationOffset + GetHeadPosition();
+        Translation = TranslationAnchor +
+                      (ModConfiguration.Instance.RotationOnlyHeadTracking.Value
+                          ? _recenteredTranslation
+                          : TranslationCalibrationOffset + GetHeadPosition());
         Rotation = RotationCalibrationOffset * GetHeadRotation();
     }
 

@@ -17,6 +17,9 @@ public class ModConfiguration
     public readonly ConfigEntry<float> NativeMenuScale;
     public readonly ConfigEntry<float> NativeMenuDistance;
     public readonly ConfigEntry<float> NativeMenuHeightOffset;
+    public readonly ConfigEntry<float> RenderResolutionScale;
+    public readonly ConfigEntry<string> DesktopMirrorMode;
+    public readonly ConfigEntry<bool> RotationOnlyHeadTracking;
     public readonly ConfigEntry<string> CursorInputMode;
     public readonly ConfigEntry<bool> EnableNativeMenuEnvironment;
     public readonly ConfigEntry<bool> EnableExperimentalSteamVrControllerProfiles;
@@ -71,6 +74,25 @@ public class ModConfiguration
             "Native Menu Height Offset",
             0.0f,
             "Vertical offset in meters applied when NOVR's native VR menu UI is opened or recentered. Values from -0.25 to 1.0 are supported.");
+
+        RenderResolutionScale = config.Bind(
+            "VR",
+            "Render Resolution Scale",
+            1.3f,
+            "Per-eye render resolution multiplier. The left-controller utility menu changes this in 0.1 steps.");
+
+        DesktopMirrorMode = config.Bind(
+            "VR",
+            "Desktop Mirror Mode",
+            "BothEyes",
+            "Desktop output shown by the game window. Supported values are BothEyes and SideBySide.");
+
+        RotationOnlyHeadTracking = config.Bind(
+            "VR",
+            "Rotation Only Head Tracking",
+            false,
+            "Keep the headset at its recentered position and apply rotation only. " +
+            "Useful when positional tracking is noisy or quantized; disables leaning in the cockpit.");
 
         CursorInputMode = config.Bind(
             "Experimental",

@@ -11,6 +11,7 @@ namespace NOVR.VrUi
     {
         private static bool _leftTriggerWasPressedCache;
         private static bool _rightTriggerWasPressedCache;
+        private static bool _leftMenuWasPressedCache;
 
         private static InputAction? _rightAimPos;
         private static InputAction? _rightAimRot;
@@ -18,6 +19,7 @@ namespace NOVR.VrUi
         private static InputAction? _leftAimRot;
         private static InputAction? _rightTrigger;
         private static InputAction? _leftTrigger;
+        private static InputAction? _leftMenu;
         private static InputAction? _headPos;
         private static InputAction? _headRot;
         private static bool _actionsInitialized;
@@ -28,6 +30,7 @@ namespace NOVR.VrUi
         private static Vector3 _rawRightPos, _rawLeftPos, _rawHeadPos;
         private static Quaternion _rawRightRot, _rawLeftRot, _rawHeadRot;
         private static float _rawRightTrigger, _rawLeftTrigger;
+        private static float _rawLeftMenu;
 
         // Per-frame edge detection — GetTriggerWasPressedThisFrame and
         // GetTriggerWasReleasedThisFrame are idempotent within a frame so a
@@ -39,6 +42,8 @@ namespace NOVR.VrUi
         private static bool _rightTriggerPressedThisFrame;
         private static bool _leftTriggerReleasedThisFrame;
         private static bool _rightTriggerReleasedThisFrame;
+        private static int _menuEdgeFrame = -1;
+        private static bool _leftMenuPressedThisFrame;
 
         // Filtered tracking-space poses
         private static Vector3 _filtRightPos, _filtLeftPos;
@@ -72,6 +77,7 @@ namespace NOVR.VrUi
             _headValid = TryReadRawPose(_headPos, _headRot, out _rawHeadPos, out _rawHeadRot);
             _rawRightTrigger = TryReadFloat(_rightTrigger);
             _rawLeftTrigger = TryReadFloat(_leftTrigger);
+            _rawLeftMenu = TryReadFloat(_leftMenu);
 
             // Initialize filters on first valid data
             if (!_filtInitialized)
@@ -211,6 +217,8 @@ namespace NOVR.VrUi
             _rightTrigger.AddBinding("<XRController>{RightHand}/trigger");
             _leftTrigger = new InputAction(type: InputActionType.Button, binding: "<XRController>{LeftHand}/triggerPressed");
             _leftTrigger.AddBinding("<XRController>{LeftHand}/trigger");
+            _leftMenu = new InputAction(type: InputActionType.Button, binding: "<XRController>{LeftHand}/menu");
+            _leftMenu.AddBinding("<XRController>{LeftHand}/menuButton");
 
             _headPos = new InputAction(binding: "<XRHMD>/centerEyePosition");
             _headPos.AddBinding("<XRHMD>/devicePosition");
@@ -223,6 +231,7 @@ namespace NOVR.VrUi
             _leftAimRot.Enable();
             _rightTrigger.Enable();
             _leftTrigger.Enable();
+            _leftMenu.Enable();
             _headPos.Enable();
             _headRot.Enable();
 
@@ -400,6 +409,19 @@ namespace NOVR.VrUi
         {
             EnsureTriggerEdgeCache();
             return hand == XRNode.LeftHand ? _leftTriggerReleasedThisFrame : _rightTriggerReleasedThisFrame;
+        }
+
+        public static bool GetLeftMenuWasPressedThisFrame()
+        {
+            EnsureFrame();
+            if (_menuEdgeFrame == Time.frameCount)
+                return _leftMenuPressedThisFrame;
+
+            _menuEdgeFrame = Time.frameCount;
+            bool pressed = _rawLeftMenu > 0.5f;
+            _leftMenuPressedThisFrame = pressed && !_leftMenuWasPressedCache;
+            _leftMenuWasPressedCache = pressed;
+            return _leftMenuPressedThisFrame;
         }
 
         private static void EnsureTriggerEdgeCache()

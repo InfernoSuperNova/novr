@@ -68,6 +68,7 @@ public class NOUIManager : NOVRBehaviour
         Create<VrUiCursor>(transform);
         Create<VrControllerLaser>(transform);
         Create<NativeVrUiRoot>(transform);
+        Create<Cv1UtilityMenu>(transform);
         ConfigureUiCameras();
     }
 
