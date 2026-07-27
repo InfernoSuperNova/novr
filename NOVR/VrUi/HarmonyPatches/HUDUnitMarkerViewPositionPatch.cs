@@ -1,5 +1,6 @@
 using HarmonyLib;
 using System.Reflection;
+using NuclearOption.UIStyleSystem;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -30,84 +31,95 @@ internal static class HUDUnitMarkerViewPositionPatch
     private static class UpdatePositionPatch
     {
         [HarmonyPrefix]
-        private static bool Prefix(HUDUnitMarker __instance, FactionHQ hq, ref global::GlobalPosition viewPosition, ref Vector3 cameraForward)
+        private static bool Prefix(global::HUDUnitMarker __instance, FactionHQ hq, global::GlobalPosition viewPosition, Vector3 cameraForward)
         {
             var mainCamera = APIBus.MainCamera;
-            var screenSpaceCamera = APIBus.CockpitHudCamera;
+            var cockpitHudCamera = APIBus.CockpitHudCamera;
+            if (mainCamera == null || cockpitHudCamera == null)
+                return true;
 
-            var realCameraPosition = mainCamera.transform.GlobalPosition();
-            var realCameraForward = mainCamera.transform.forward;
-            GetTransform(__instance).rotation = screenSpaceCamera.transform.rotation;
-            
-            
-            
-            
-            var targetInfo = (Text)TargetInfoField.GetValue(SceneSingleton<CombatHUD>.i);
+            var markerTransform = GetTransform(__instance);
+            markerTransform.rotation = cockpitHudCamera.transform.rotation;
+
+            var targetInfo = TargetInfoField.GetValue(SceneSingleton<CombatHUD>.i) as Component;
             if (targetInfo != null)
-            {
-                targetInfo.transform.rotation = screenSpaceCamera.transform.rotation;
-            }
-            
+                targetInfo.transform.rotation = cockpitHudCamera.transform.rotation;
+
             if (GetHidden(__instance))
                 return false;
+
             GlobalPosition knownPosition = __instance.unit.GlobalPosition();
             if (__instance.outdated && !hq.TryGetKnownPosition(__instance.unit, out knownPosition))
-              return false;
+                return false;
+
+            var knownWorldPosition = knownPosition.ToLocalPosition();
             if (__instance.selected)
             {
-              if (VrHudProjection.PinToScreenEdge(knownPosition.ToLocalPosition(), out Vector3 rayToScreen, out _))
-              {
-                __instance.image.enabled = false;
-                if (VrHudProjection.TryProjectDirectionToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-                  SetTargetArrow(SceneSingleton<CombatHUD>.i, true, rayToScreen, targetHudPosition, -screenSpaceCamera.transform.forward, screenSpaceCamera);
-              }
-              else
-              {
-                __instance.image.enabled = true;
-                
-                if (VrHudProjection.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-                  GetTransform(__instance).position = targetHudPosition;
-                SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero, screenSpaceCamera);
-              }
-              if (!__instance.unit.HasRadarEmission())
-                return false;
-              if ((__instance.unit.radar as Radar).IsJammed())
-              {
-                if (!((UnityEngine.Object) __instance.image.sprite != (UnityEngine.Object) GameAssets.i.targetUnitSpriteJammed))
+                if (VrHudProjection.PinToScreenEdge(knownWorldPosition, out var rayToScreen, out _))
+                {
+                    __instance.image.enabled = false;
+                    if (VrHudProjection.TryProjectDirectionToCockpitHud(knownWorldPosition, out var targetHudPosition))
+                        SetTargetArrow(SceneSingleton<CombatHUD>.i, true, rayToScreen, targetHudPosition,
+                            -cockpitHudCamera.transform.forward, cockpitHudCamera);
+                }
+                else
+                {
+                    __instance.image.enabled = true;
+                    if (VrHudProjection.TryProjectToCockpitHud(knownWorldPosition, out var targetHudPosition))
+                        markerTransform.position = targetHudPosition;
+                    SetTargetArrow(SceneSingleton<CombatHUD>.i, false, Vector3.zero, Vector3.zero, Vector3.zero,
+                        cockpitHudCamera);
+                }
+
+                if (!__instance.unit.HasRadarEmission())
                   return false;
-                __instance.image.sprite = GameAssets.i.targetUnitSpriteJammed;
-              }
-              else
-              {
-                if (!((UnityEngine.Object) __instance.image.sprite == (UnityEngine.Object) GameAssets.i.targetUnitSpriteJammed))
-                  return false;
-                __instance.image.sprite = DynamicMap.GetFactionMode(__instance.unit.NetworkHQ) == FactionMode.Friendly ? GameAssets.i.targetUnitSpriteFriendly : GetIcon(__instance);
-              }
+
+                if (__instance.unit.radar is Radar radar && radar.IsJammed())
+                {
+                    if (__instance.image.sprite == GameAssets.i.targetUnitSpriteJammed)
+                        return false;
+                    __instance.image.sprite = GameAssets.i.targetUnitSpriteJammed;
+                }
+                else
+                {
+                    if (__instance.image.sprite != GameAssets.i.targetUnitSpriteJammed)
+                        return false;
+                    __instance.image.sprite = DynamicMap.GetFactionMode(__instance.unit.NetworkHQ) == FactionMode.Friendly
+                        ? GameAssets.i.targetUnitSpriteFriendly
+                        : GetIcon(__instance);
+                }
             }
-            else if ((double) Vector3.Dot(knownPosition - realCameraPosition, realCameraForward) < 0.0)
+            else if (Vector3.Dot(knownWorldPosition - mainCamera.transform.position, mainCamera.transform.forward) < 0.0f)
             {
-              if (!__instance.image.enabled)
-                return false;
-              __instance.image.enabled = false;
+                if (!__instance.image.enabled)
+                    return false;
+                __instance.image.enabled = false;
             }
             else
             {
-              if (!__instance.image.enabled)
-                __instance.image.enabled = true;
-              if (VrHudProjection.TryProjectToCockpitHud(knownPosition.ToLocalPosition(), out var targetHudPosition))
-                GetTransform(__instance).position = targetHudPosition;
-              if (__instance.fresh)
-              {
-                Color markerColor = GetColor(__instance);
-                float t = Time.timeSinceLevelLoad - GetTimeCreated(__instance);
-                __instance.image.color = Color.Lerp(markerColor + Color.yellow, markerColor, t);
-                if ((double) t > 1.0)
-                  __instance.fresh = false;
-              }
-              if (!GetFlashing(__instance))
-                return false;
-              Color flashingColor = GetColor(__instance);
-              __instance.image.color = Color.Lerp(flashingColor + Color.yellow, flashingColor, Mathf.Sin(Time.timeSinceLevelLoad * 20f) + 0.5f);
+                if (!__instance.image.enabled)
+                    __instance.image.enabled = true;
+                if (VrHudProjection.TryProjectToCockpitHud(knownWorldPosition, out var targetHudPosition))
+                    markerTransform.position = targetHudPosition;
+
+                if (__instance.fresh)
+                {
+                    var markerColor = GetColor(__instance);
+                    var warningColor = ThemeManager.Active.ColorTheme.Warning;
+                    var t = Time.timeSinceLevelLoad - GetTimeCreated(__instance);
+                    __instance.image.color = Color.Lerp(markerColor + warningColor, markerColor, t);
+                    if (t > 1.0f)
+                        __instance.fresh = false;
+                }
+
+                if (!GetFlashing(__instance))
+                    return false;
+                var flashingColor = GetColor(__instance);
+                var flashingWarningColor = ThemeManager.Active.ColorTheme.Warning;
+                __instance.image.color = Color.Lerp(
+                    flashingColor + flashingWarningColor,
+                    flashingColor,
+                    Mathf.Sin(Time.timeSinceLevelLoad * 20f) + 0.5f);
             }
 
             return false;
@@ -123,12 +135,12 @@ internal static class HUDUnitMarkerViewPositionPatch
 
             targetArrow.enabled = enabled;
             targetText.enabled = enabled;
-            targetText.transform.position = targetArrowTail.position;
             targetText.transform.rotation = screenSpaceCamera.transform.rotation;
             if (!enabled)
                 return;
 
             targetArrow.transform.position = position;
+            targetText.transform.position = targetArrowTail.position;
             var desiredUp = targetPosition - position;
             if (desiredUp.sqrMagnitude <= Mathf.Epsilon)
                 desiredUp = targetArrow.transform.up;
