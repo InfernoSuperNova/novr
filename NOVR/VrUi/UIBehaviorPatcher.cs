@@ -26,6 +26,7 @@ public class UIBehaviorPatcher : NOVRBehaviour
     {
         { "MainCanvas", typeof(NOVRMainMenuBehavior) },
         { "MenuCanvas", typeof(NOVRGameplayUIBehaviour) },
+        { "MaximizedMapCanvas", typeof(NOVRGameplayUIBehaviour) },
         { "BlackoutCanvas", typeof(NOVRBlackoutCanvasBehavior)}, //Template.ForCanvas("BlackoutCanvas", UiTranslationSpace.ScreenSpace, GameUiRegion.Absolute),
         { "SceneEssentials", typeof(PositionZeroBehavior)},
         { "Canvas", typeof(PositionZeroBehavior)},
