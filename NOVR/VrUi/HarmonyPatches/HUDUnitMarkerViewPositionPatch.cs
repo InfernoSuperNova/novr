@@ -2,7 +2,6 @@ using HarmonyLib;
 using System.Reflection;
 using NuclearOption.UIStyleSystem;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace NOVR.VrUi.HarmonyPatches;
 
@@ -129,9 +128,11 @@ internal static class HUDUnitMarkerViewPositionPatch
         
         private static void SetTargetArrow(global::CombatHUD instance, bool enabled, Vector3 position, Vector3 targetPosition, Vector3 up, Component screenSpaceCamera)
         {
-            var targetArrow = (Image)TargetArrowField.GetValue(instance);
-            var targetArrowTail = (Transform)TargetArrowTailField.GetValue(instance);
-            var targetText = (Text)TargetTextField.GetValue(instance);
+            var targetArrow = TargetArrowField.GetValue(instance) as Behaviour;
+            var targetArrowTail = TargetArrowTailField.GetValue(instance) as Transform;
+            var targetText = TargetTextField.GetValue(instance) as Behaviour;
+            if (targetArrow == null || targetArrowTail == null || targetText == null)
+                return;
 
             targetArrow.enabled = enabled;
             targetText.enabled = enabled;
