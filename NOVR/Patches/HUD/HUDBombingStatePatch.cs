@@ -41,8 +41,10 @@ internal static class HUDBombingStatePatch
     {
         var alignmentBar = (Image)AlignmentBarField.GetValue(state);
         var ccrpCircle = (Image)CcrpCircleField.GetValue(state);
-        var dropCountdown = (Text)DropCountdownField.GetValue(state);
-        var ccrpFallTime = (Text)CcrpFallTimeField.GetValue(state);
+        // dropCountdown/ccrpFallTime/ccipFallTime became TextMeshProUGUI in NO 0.34 - only the
+        // transform is needed here, so treat them as Component to survive the type change.
+        var dropCountdown = DropCountdownField.GetValue(state) as Component;
+        var ccrpFallTime = CcrpFallTimeField.GetValue(state) as Component;
         var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (alignmentBar == null || cockpitHudCamera == null || !alignmentBar.gameObject.activeSelf)
             return;
@@ -78,7 +80,7 @@ internal static class HUDBombingStatePatch
     {
         var ccipPipper = (Image)CcipPipperField.GetValue(state);
         var ccipLine = (Image)CcipLineField.GetValue(state);
-        var ccipFallTime = (Text)CcipFallTimeField.GetValue(state);
+        var ccipFallTime = CcipFallTimeField.GetValue(state) as Component;
         var velocityVector = SceneSingleton<FlightHud>.i.velocityVector;
         var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (ccipPipper == null || ccipLine == null || cockpitHudCamera == null || velocityVector == null || !ccipPipper.enabled)

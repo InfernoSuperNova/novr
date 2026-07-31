@@ -1,9 +1,9 @@
+using System;
 using System.Reflection;
 using HarmonyLib;
 using NOVR.PatchHelper;
 using NOVR.VrUi.HarmonyPatches;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace NOVR.Patches.HUD;
 
@@ -38,8 +38,8 @@ internal static class AirbaseOverlayPatch
 
     private static void UpdateAirbaseMarker(AirbaseOverlay overlay, Aircraft aircraft)
     {
-        var airbaseMarker = (Image)AirbaseMarkerField.GetValue(overlay);
-        var airbaseLabel = (Text)AirbaseLabelField.GetValue(overlay);
+        var airbaseMarker = AirbaseMarkerField.GetValue(overlay) as Behaviour;
+        var airbaseLabel = AirbaseLabelField.GetValue(overlay) as Behaviour;
         var nearestAirbase = (Airbase)NearestAirbaseField.GetValue(overlay);
         var runwayUsage = GetRunwayUsage(overlay);
         var landing = (bool)LandingField.GetValue(overlay);
@@ -82,7 +82,7 @@ internal static class AirbaseOverlayPatch
     {
         var runwayUsage = GetRunwayUsage(overlay);
         var landing = (bool)LandingField.GetValue(overlay);
-        var runwayBorders = (Image[])RunwayBordersField.GetValue(overlay);
+        var runwayBorders = GetBehaviours(RunwayBordersField.GetValue(overlay));
         var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (!landing || !runwayUsage.HasValue || runwayBorders == null || runwayBorders.Length < 4 || cockpitHudCamera == null)
             return;
@@ -124,8 +124,8 @@ internal static class AirbaseOverlayPatch
     private static void UpdateGlideslope(global::AirbaseOverlay overlay, Aircraft aircraft)
     {
         var runwayUsage = GetRunwayUsage(overlay);
-        var glideslope = (Image)GlideslopeField.GetValue(overlay);
-        var glideslopeAimPoint = (Image)GlideslopeAimPointField.GetValue(overlay);
+        var glideslope = GlideslopeField.GetValue(overlay) as Behaviour;
+        var glideslopeAimPoint = GlideslopeAimPointField.GetValue(overlay) as Behaviour;
         var cockpitHudCamera = APIBus.CockpitHudCamera;
         if (!runwayUsage.HasValue || runwayUsage.Value.Runway == null || glideslope == null || glideslopeAimPoint == null ||
             cockpitHudCamera == null || !glideslope.enabled)
@@ -158,7 +158,18 @@ internal static class AirbaseOverlayPatch
     private static Airbase.Runway.RunwayUsage? GetRunwayUsage(global::AirbaseOverlay overlay) =>
         (Airbase.Runway.RunwayUsage?)RunwayUsageField.GetValue(overlay);
 
-    private static void SetRunwayBordersEnabled(Image[] runwayBorders, bool enabled)
+    private static Behaviour[]? GetBehaviours(object? value)
+    {
+        if (value is not Array array)
+            return null;
+
+        var behaviours = new Behaviour[array.Length];
+        for (var i = 0; i < array.Length; i++)
+            behaviours[i] = array.GetValue(i) as Behaviour;
+        return behaviours;
+    }
+
+    private static void SetRunwayBordersEnabled(Behaviour[] runwayBorders, bool enabled)
     {
         foreach (var runwayBorder in runwayBorders)
         {
