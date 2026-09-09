@@ -163,7 +163,7 @@ namespace NOVR.VrUi
             {
                 Vector3 p = posAction.ReadValue<Vector3>();
                 Quaternion r = rotAction.ReadValue<Quaternion>();
-                if (p.sqrMagnitude > 0.0001f)
+                if (p.sqrMagnitude > 0.0001f || Quaternion.Angle(r, Quaternion.identity) > 0.1f)
                 {
                     pos = p;
                     rot = r;

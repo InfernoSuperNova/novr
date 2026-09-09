@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using NOVR.VrUi.SpecialBehavior;
+using Rewired.UI.ControlMapper;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -21,6 +22,7 @@ public class UIBehaviorPatcher : NOVRBehaviour
         { typeof(MessageUI), typeof(NOVRGameplayUIBehaviour) },
         { typeof(StatusDisplay), typeof(NOVRStatusDisplayBehavior) },
         { typeof(DynamicMap), typeof(NOVRDynamicMapBehavior) },
+        { typeof(ControlMapper), typeof(NOVRGameplayUIBehaviour) },
     };
 
     private static Dictionary<string, List<Type>> _sceneLoadPatchMap = new() // We patch gameobjects by name the first time a scene is loaded (yes we iterate the tree recursively)
@@ -104,6 +106,7 @@ public class UIBehaviorPatcher : NOVRBehaviour
             _toReactivate.Clear();
         }
 
+        var deferredComponentPatches = new List<KeyValuePair<Component, Type>>();
         foreach (var kvp in _toPatch_component)
         {
             Debug.Log($"UIBehaviorPatcher: Adding {kvp.Value.Name} to {kvp.Key.name} (component patch)");
@@ -114,12 +117,29 @@ public class UIBehaviorPatcher : NOVRBehaviour
             }
             var comp = kvp.Key;
             var toAdd = kvp.Value;
+            if (comp is ControlMapper controlMapper)
+            {
+                var canvas = FindChildByName(controlMapper.transform, "Canvas");
+                if (canvas == null)
+                {
+                    Debug.LogWarning("UIBehaviorPatcher: ControlMapper Canvas child is not ready; deferring patch.");
+                    deferredComponentPatches.Add(kvp);
+                    continue;
+                }
+
+                if (!canvas.gameObject.TryGetComponent(toAdd, out Component _))
+                    AddAndBounceIfActive(canvas.gameObject, toAdd);
+                continue;
+            }
+
             if (!comp.gameObject.TryGetComponent(toAdd, out Component _))
             {
                 AddAndBounceIfActive(comp.gameObject, toAdd);
             }
         }
         _toPatch_component.Clear();
+        foreach (var kvp in deferredComponentPatches)
+            _toPatch_component[kvp.Key] = kvp.Value;
 
 
         if (_toPatch_name.Count > 0)
@@ -151,5 +171,21 @@ public class UIBehaviorPatcher : NOVRBehaviour
         Debug.Log($"UIBehaviorPatcher: Deactivating {go.name} for one frame to force lifecycle callbacks");
         go.SetActive(false);
         _toReactivate.Add(go);
+    }
+
+    private static Transform? FindChildByName(Transform root, string childName)
+    {
+        for (var i = 0; i < root.childCount; i++)
+        {
+            var child = root.GetChild(i);
+            if (child.name == childName)
+                return child;
+
+            var nestedChild = FindChildByName(child, childName);
+            if (nestedChild != null)
+                return nestedChild;
+        }
+
+        return null;
     }
 }
