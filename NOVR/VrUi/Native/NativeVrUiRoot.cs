@@ -1,9 +1,9 @@
 using NOVR.VrUi.SpecialBehavior;
 using System.Collections.Generic;
+using NuclearOption.Networking;
 using NuclearOption.Networking.Lobbies;
 using NuclearOption.Workshop;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace NOVR.VrUi.Native;
@@ -17,12 +17,16 @@ public class NativeVrUiRoot : NOVRBehaviour
     private static readonly Vector2 NativeCanvasSize = new(2000f, 1125f);
     private const float MainMenuScanIntervalSeconds = 0.5f;
     private const float RequestedMenuTransitionSeconds = 0.5f;
+    private const float MissionLaunchEnvironmentSuppressionSeconds = 8f;
     private const float RecenterDelaySeconds = 2.0f;
+    private const float LiveRecenterDelaySeconds = 3.0f;
     private const float AnchorResetAfterHiddenSeconds = 1.5f;
     private const float MinimumMenuCenterHeightBelowHeadMeters = -0.25f;
     private const float RecenterWidgetDistanceMeters = 1.35f;
     private const float RecenterWidgetVerticalOffsetMeters = -0.42f;
     private const float RecenterWidgetCanvasScale = 0.0018f;
+    private const float NativeMenuEnvironmentHeightOffsetMeters = 0.0f;
+    private const float NativeMenuEnvironmentMinimumMenuCenterHeightBelowHeadMeters = -5.25f;
     private static readonly Vector2 RecenterWidgetCanvasSize = new(320f, 96f);
 
     private readonly NativeGameActionAdapter _actions = new();
@@ -36,6 +40,7 @@ public class NativeVrUiRoot : NOVRBehaviour
     private NativeSettingsPanel? _settingsPanel;
     private NativeWorkshopPanel? _workshopPanel;
     private NativeVrUiSettingsPanel? _vrUiSettingsPanel;
+    private NativeMenuEnvironment? _menuEnvironment;
     private GameObject? _recenterWidgetRoot;
     private Canvas? _recenterWidgetCanvas;
     private Button? _recenterWidgetButton;
@@ -55,10 +60,13 @@ public class NativeVrUiRoot : NOVRBehaviour
     private bool _workshopRequested;
     private float _workshopRequestTime;
     private bool _vrUiSettingsOpen;
+    private bool _missionLaunchPending;
+    private float _missionLaunchRequestTime;
     private float _nextMainMenuScanTime;
     private float _pendingRecenterTime;
     private bool _recenterPending;
-    private bool _menuAnchorInitialized;
+    private float _pendingLiveRecenterTime;
+    private bool _liveRecenterPending;
     private float _lastNativeUiVisibleTime = -100f;
     private Vector3 _menuAnchorPosition;
     private Quaternion _menuAnchorRotation = Quaternion.identity;
@@ -67,6 +75,14 @@ public class NativeVrUiRoot : NOVRBehaviour
     public VrPointerState PointerState => _pointerState;
     public GameObject? OriginalMainCanvas => _mainCanvas;
     public NativeGameActionAdapter Actions => _actions;
+
+    private void OnDestroy()
+    {
+        if (_canvas != null)
+            VrCanvasHitTester.Unregister(_canvas);
+        if (_recenterWidgetCanvas != null)
+            VrCanvasHitTester.Unregister(_recenterWidgetCanvas);
+    }
 
     private void Start()
     {
@@ -79,6 +95,27 @@ public class NativeVrUiRoot : NOVRBehaviour
         EnsureRoot();
         ScanForMainMenuCanvas();
 
+        if (GameManager.gameState != GameState.Menu)
+        {
+            RestoreOriginalMainCanvas();
+            if (_root != null)
+            {
+                _root.SetActive(false);
+            }
+            _menuEnvironment?.Hide();
+            ClearNativeCursorProjectionReference();
+            SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
+            HandleRecenterShortcut(false);
+            UpdateLivePendingRecenter();
+            return;
+        }
+
+        if (_missionLaunchPending &&
+            Time.unscaledTime - _missionLaunchRequestTime > MissionLaunchEnvironmentSuppressionSeconds)
+        {
+            _missionLaunchPending = false;
+        }
+
         if (!IsNativeMenuUiEnabled)
         {
             RestoreOriginalMainCanvas();
@@ -86,7 +123,7 @@ public class NativeVrUiRoot : NOVRBehaviour
             {
                 _root.SetActive(false);
             }
-            _menuAnchorInitialized = false;
+            _menuEnvironment?.Hide();
             ClearNativeCursorProjectionReference();
             SetUtilityWidgetMode(ShouldShowStockNativeUiToggle()
                 ? UtilityWidgetMode.EnableNativeUi
@@ -159,12 +196,30 @@ public class NativeVrUiRoot : NOVRBehaviour
         _vrUiSettingsPanel?.SetVisible(shouldShowVrUiSettings);
 
         var shouldShowNativeUi = shouldShowMainMenu || shouldShowSinglePlayerMissionPicker || shouldShowMultiplayer || shouldShowSettings || shouldShowWorkshop || shouldShowVrUiSettings;
+        var shouldKeepEnvironmentForMenuTransition = !controlMapperOpen &&
+                                                     (waitingForSinglePlayerMissionPicker ||
+                                                      waitingForMultiplayer ||
+                                                      waitingForSettingsMenu ||
+                                                      waitingForWorkshop ||
+                                                      _singlePlayerMissionPickerRequested ||
+                                                      _multiplayerRequested ||
+                                                      _settingsRequested ||
+                                                      _workshopRequested ||
+                                                      _vrUiSettingsOpen);
+        var shouldShowNativeEnvironment = !_missionLaunchPending &&
+                                          (shouldShowNativeUi || shouldKeepEnvironmentForMenuTransition);
         HandleRecenterShortcut(shouldShowNativeUi);
         UpdatePlacement(shouldShowNativeUi);
         UpdatePendingRecenter(shouldShowNativeUi);
+        UpdateLivePendingRecenter();
         if (_root != null && _root.activeSelf != shouldShowNativeUi)
         {
             _root.SetActive(shouldShowNativeUi);
+        }
+
+        if (_root != null)
+        {
+            _menuEnvironment?.UpdateEnvironment(_root.transform, shouldShowNativeEnvironment);
         }
 
         SuppressOriginalMainCanvas(shouldShowNativeUi);
@@ -189,7 +244,7 @@ public class NativeVrUiRoot : NOVRBehaviour
         {
             _root.SetActive(false);
         }
-        _menuAnchorInitialized = false;
+        _menuEnvironment?.Hide();
         ClearNativeCursorProjectionReference();
         SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
     }
@@ -213,14 +268,16 @@ public class NativeVrUiRoot : NOVRBehaviour
         _root.AddComponent<GraphicRaycaster>();
         LayerHelper.SetLayerRecursive(_root.transform, LayerHelper.GetVrUiLayer());
 
+        VrCanvasHitTester.Register(_canvas);
+
         _mainMenuShell = _root.AddComponent<NativeMainMenuShell>();
         _mainMenuShell.Initialize(_actions, rectTransform, OpenVrUiSettingsPanel);
         _mainMenuShell.SetOriginalMainCanvas(_mainCanvas);
         _multiplayerPanel = _root.AddComponent<NativeMultiplayerPanel>();
-        _multiplayerPanel.Initialize(_actions, rectTransform);
+        _multiplayerPanel.Initialize(_actions, rectTransform, OnMissionLaunchRequested);
         _multiplayerPanel.SetVisible(false);
         _singlePlayerMissionPanel = _root.AddComponent<NativeSinglePlayerMissionPanel>();
-        _singlePlayerMissionPanel.Initialize(_actions, rectTransform);
+        _singlePlayerMissionPanel.Initialize(_actions, rectTransform, OnMissionLaunchRequested);
         _singlePlayerMissionPanel.SetVisible(false);
         _settingsPanel = _root.AddComponent<NativeSettingsPanel>();
         _settingsPanel.Initialize(_actions, rectTransform);
@@ -231,6 +288,7 @@ public class NativeVrUiRoot : NOVRBehaviour
         _vrUiSettingsPanel = _root.AddComponent<NativeVrUiSettingsPanel>();
         _vrUiSettingsPanel.Initialize(rectTransform, CloseVrUiSettingsPanel, RecenterMenu);
         _vrUiSettingsPanel.SetVisible(false);
+        _menuEnvironment = gameObject.AddComponent<NativeMenuEnvironment>();
         CreateRecenterWidget();
         _actions.ActionInvoked += OnNativeActionInvoked;
         _root.SetActive(false);
@@ -244,6 +302,12 @@ public class NativeVrUiRoot : NOVRBehaviour
 
         var menuDistance = GetNativeMenuDistance();
         var menuHeightOffset = GetNativeMenuHeightOffset();
+        var environmentEnabled = ModConfiguration.Instance?.EnableNativeMenuEnvironment.Value == true;
+        if (environmentEnabled)
+        {
+            menuHeightOffset += NativeMenuEnvironmentHeightOffsetMeters;
+        }
+
         var menuScale = BaseCanvasScale * GetNativeMenuScale();
         _root.transform.localScale = Vector3.one * menuScale;
 
@@ -257,54 +321,29 @@ public class NativeVrUiRoot : NOVRBehaviour
         {
             ClearNativeCursorProjectionReference();
             SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
-            if (_menuAnchorInitialized && Time.unscaledTime - _lastNativeUiVisibleTime > AnchorResetAfterHiddenSeconds)
-            {
-                _menuAnchorInitialized = false;
-            }
             return;
         }
 
         _lastNativeUiVisibleTime = Time.unscaledTime;
         SetUtilityWidgetMode(UtilityWidgetMode.Recenter);
-
-        if (!_menuAnchorInitialized)
-        {
-            CaptureMenuAnchor();
-        }
+        
 
         _root.transform.SetParent(null, true);
-        ApplyMenuAnchor(menuDistance, menuHeightOffset);
+        ApplyMenuAnchor(
+            menuDistance,
+            menuHeightOffset,
+            environmentEnabled
+                ? NativeMenuEnvironmentMinimumMenuCenterHeightBelowHeadMeters
+                : MinimumMenuCenterHeightBelowHeadMeters);
         ApplyNativeCursorProjectionReference();
     }
 
-    private void CaptureMenuAnchor()
+    private void ApplyMenuAnchor(float menuDistance, float menuHeightOffset, float minimumMenuCenterHeightBelowHeadMeters)
     {
-        var reference = APIBus.CockpitHudReference.transform;
-        var forward = Vector3.ProjectOnPlane(reference.forward, Vector3.up);
-        if (forward.sqrMagnitude < 0.0001f)
-        {
-            forward = _menuAnchorInitialized
-                ? _menuAnchorRotation * Vector3.forward
-                : Vector3.ProjectOnPlane(_root != null ? _root.transform.forward : Vector3.forward, Vector3.up);
-        }
-        if (forward.sqrMagnitude < 0.0001f)
-        {
-            forward = Vector3.forward;
-        }
-
-        forward.Normalize();
-
-        _menuAnchorPosition = reference.position;
-        _menuAnchorRotation = Quaternion.LookRotation(forward, Vector3.up);
-        _menuAnchorInitialized = true;
-    }
-
-    private void ApplyMenuAnchor(float menuDistance, float menuHeightOffset)
-    {
-        if (_root == null || !_menuAnchorInitialized) return;
+        if (_root == null) return;
 
         var position = _menuAnchorPosition + (_menuAnchorRotation * Vector3.forward) * menuDistance + Vector3.up * menuHeightOffset;
-        var minimumHeight = _menuAnchorPosition.y + MinimumMenuCenterHeightBelowHeadMeters;
+        var minimumHeight = _menuAnchorPosition.y + minimumMenuCenterHeightBelowHeadMeters;
         if (position.y < minimumHeight)
         {
             position.y = minimumHeight;
@@ -316,8 +355,6 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     private void ApplyNativeCursorProjectionReference()
     {
-        if (!_menuAnchorInitialized) return;
-
         VrUiCursor.I?.SetProjectionReferenceRotation(_menuAnchorRotation);
     }
 
@@ -328,13 +365,34 @@ public class NativeVrUiRoot : NOVRBehaviour
 
     private void HandleRecenterShortcut(bool shouldShowNativeUi)
     {
-        if (!shouldShowNativeUi) return;
+        if (!UnityEngine.Input.GetKeyDown(ModConfiguration.Instance.RecenterShortcut.Value)) return;
 
-        var keyboard = Keyboard.current;
-        if (keyboard?.homeKey.wasPressedThisFrame == true)
+        if (shouldShowNativeUi)
         {
             RecenterMenu();
         }
+        else
+        {
+            QueueLiveRecenter();
+        }
+    }
+
+    private void QueueLiveRecenter()
+    {
+        _liveRecenterPending = true;
+        _pendingLiveRecenterTime = Time.unscaledTime + LiveRecenterDelaySeconds;
+        Debug.Log($"[NOVR] Live recenter queued for {LiveRecenterDelaySeconds:0.0} seconds from now.");
+    }
+
+    private void UpdateLivePendingRecenter()
+    {
+        if (!_liveRecenterPending) return;
+        if (Time.unscaledTime < _pendingLiveRecenterTime) return;
+
+        NOVRHeadsetData.CalibrateTranslation();
+        NOVRHeadsetData.CalibrateRotation();
+        _liveRecenterPending = false;
+        Debug.Log("[NOVR] Live recenter applied.");
     }
 
     private void RecenterMenu()
@@ -420,6 +478,8 @@ public class NativeVrUiRoot : NOVRBehaviour
         _recenterWidgetRoot.AddComponent<GraphicRaycaster>();
         LayerHelper.SetLayerRecursive(_recenterWidgetRoot.transform, LayerHelper.GetVrUiLayer());
 
+        VrCanvasHitTester.Register(_recenterWidgetCanvas);
+
         var button = CreateRecenterButton(
             "VR CENTER",
             rectTransform,
@@ -493,7 +553,6 @@ public class NativeVrUiRoot : NOVRBehaviour
         var config = ModConfiguration.Instance;
         config.EnableNativeMenuUi.Value = true;
         config.Config.Save();
-        _menuAnchorInitialized = false;
         SetNativeMenuRequestFromCurrentStockMenu();
         SetUtilityWidgetMode(UtilityWidgetMode.Hidden);
         Debug.Log("[NOVR] Native VR UI enabled from stock menu fallback button.");
@@ -754,6 +813,13 @@ public class NativeVrUiRoot : NOVRBehaviour
     {
         _vrUiSettingsOpen = false;
         _vrUiSettingsPanel?.SetVisible(false);
+    }
+
+    private void OnMissionLaunchRequested()
+    {
+        _missionLaunchPending = true;
+        _missionLaunchRequestTime = Time.unscaledTime;
+        _menuEnvironment?.Hide();
     }
 
     private void ShowSinglePlayerMissionPanelImmediately()

@@ -15,6 +15,15 @@ public class NOVRBlackoutCanvasBehavior : MonoBehaviour
         canvas.renderMode = RenderMode.WorldSpace;
         canvas.worldCamera = APIBus.CockpitHudCamera;
         canvas.planeDistance = 1f;
+
+        VrCanvasHitTester.Register(canvas);
+    }
+
+    protected virtual void OnDestroy()
+    {
+        var canvas = gameObject.GetComponent<Canvas>();
+        if (canvas != null)
+            VrCanvasHitTester.Unregister(canvas);
     }
 
     private void Update()

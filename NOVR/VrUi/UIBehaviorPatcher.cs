@@ -19,24 +19,28 @@ public class UIBehaviorPatcher : NOVRBehaviour
         { typeof(FlightHud), typeof(NOVRFlightHudBehavior) },
         { typeof(GameplayUI), typeof(NOVRGameplayUIBehaviour) },
         { typeof(MessageUI), typeof(NOVRGameplayUIBehaviour) },
-        { typeof(StatusDisplay), typeof(NOVRStatusDisplayBehavior) }
+        { typeof(StatusDisplay), typeof(NOVRStatusDisplayBehavior) },
+        { typeof(global::DynamicMap), typeof(NOVRDynamicMapBehavior) },
+        { typeof(AircraftSelectionMenu), typeof(NOVRAircraftSelectionMenuBehavior) },
+        { typeof(LoadoutSelector), typeof(NOVRLoadoutSelectorBehavior) },
+        { typeof(WeaponSelector), typeof(NOVRWeaponSelectorBehavior) },
     };
 
-    private static Dictionary<string, Type> _sceneLoadPatchMap = new() // We patch gameobjects by name the first time a scene is loaded (yes we iterate the tree recursively)
+    private static Dictionary<string, List<Type>> _sceneLoadPatchMap = new() // We patch gameobjects by name the first time a scene is loaded (yes we iterate the tree recursively)
     {
-        { "MainCanvas", typeof(NOVRMainMenuBehavior) },
-        { "MenuCanvas", typeof(NOVRGameplayUIBehaviour) },
-        { "MaximizedMapCanvas", typeof(NOVRGameplayUIBehaviour) },
-        { "BlackoutCanvas", typeof(NOVRBlackoutCanvasBehavior)}, //Template.ForCanvas("BlackoutCanvas", UiTranslationSpace.ScreenSpace, GameUiRegion.Absolute),
-        { "SceneEssentials", typeof(PositionZeroBehavior)},
-        { "Canvas", typeof(PositionZeroBehavior)},
+        { "MainCanvas", new() { typeof(NOVRMainMenuBehavior) } },
+        { "MenuCanvas", new() { typeof(NOVRGameplayUIBehaviour) } },
+        { "MaximizedMapCanvas", new() { typeof(NOVRGameplayUIBehaviour) } },
+        { "BlackoutCanvas", new() { typeof(NOVRBlackoutCanvasBehavior) } }, //Template.ForCanvas("BlackoutCanvas", UiTranslationSpace.ScreenSpace, GameUiRegion.Absolute),
+        { "SceneEssentials", new() { typeof(PositionZeroBehavior) } },
+        { "Canvas", new() { typeof(PositionZeroBehavior) } },
     };
 
 
     private static Dictionary<Component, Type> _toPatch_component = new();
-    private static Dictionary<string, Type> _toPatch_name = new();
+    private static Dictionary<string, List<Type>> _toPatch_name = new();
     private static List<GameObject> _toReactivate = new();
-    
+
 
     static UIBehaviorPatcher()
     {
@@ -46,20 +50,20 @@ public class UIBehaviorPatcher : NOVRBehaviour
     private static void SceneLoaded(Scene arg0, LoadSceneMode arg1)
     {
         Debug.Log("UIBehaviorPatcher: Scene loaded");
-        foreach (var kvp in _sceneLoadPatchMap) _toPatch_name[kvp.Key] = kvp.Value;
+        foreach (var kvp in _sceneLoadPatchMap) _toPatch_name[kvp.Key] = new List<Type>(kvp.Value);
     }
 
 
     public static void DoPatching()
     {
         var harmony = new Harmony("novr.vrui.behavioradder");
-        
+
         var postfixMethod = typeof(UIBehaviorPatcher).GetMethod(nameof(UniversalPostfix), BindingFlags.Static | BindingFlags.NonPublic);
 
         foreach (var entry in _patchMap)
         {
             Type targetType = entry.Key;
-            
+
             ConstructorInfo ctor = targetType.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
 
             if (ctor != null)
@@ -68,7 +72,7 @@ public class UIBehaviorPatcher : NOVRBehaviour
             }
         }
     }
-    
+
     static void UniversalPostfix(object __instance)
     {
         if (__instance is Component comp)
@@ -87,9 +91,9 @@ public class UIBehaviorPatcher : NOVRBehaviour
 
     private void Start()
     {
-        foreach (var kvp in _sceneLoadPatchMap) _toPatch_name[kvp.Key] = kvp.Value;
+        foreach (var kvp in _sceneLoadPatchMap) _toPatch_name[kvp.Key] = new List<Type>(kvp.Value);
     }
-    
+
     private void FixedUpdate()
     {
         if (_toReactivate.Count > 0)
@@ -99,10 +103,10 @@ public class UIBehaviorPatcher : NOVRBehaviour
                 Debug.Log($"UIBehaviorPatcher: Reactivating {go.name}");
                 go.SetActive(true);
             }
-            
+
             _toReactivate.Clear();
         }
-        
+
         foreach (var kvp in _toPatch_component)
         {
             Debug.Log($"UIBehaviorPatcher: Adding {kvp.Value.Name} to {kvp.Key.name} (component patch)");
@@ -125,12 +129,15 @@ public class UIBehaviorPatcher : NOVRBehaviour
         {
             foreach (var go in Resources.FindObjectsOfTypeAll(typeof(GameObject)) as GameObject[])
             {
-                
+
                 var name = go.name;
-                if (_toPatch_name.TryGetValue(name, out var toAdd))
+                if (_toPatch_name.TryGetValue(name, out var toAddList))
                 {
-                    Debug.Log($"UIBehaviorPatcher: Adding {toAdd.Name} to {name} (name patch)");
-                    if (!go.TryGetComponent(toAdd, out Component _)) AddAndBounceIfActive(go, toAdd);
+                    foreach (var toAdd in toAddList)
+                    {
+                        Debug.Log($"UIBehaviorPatcher: Adding {toAdd.Name} to {name} (name patch)");
+                        if (!go.TryGetComponent(toAdd, out Component _)) AddAndBounceIfActive(go, toAdd);
+                    }
                 }
             }
             _toPatch_name.Clear();

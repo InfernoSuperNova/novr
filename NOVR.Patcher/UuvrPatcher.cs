@@ -31,6 +31,7 @@ public class Patcher
         if (assembly.Name.Name == "Unity.XR.OpenXR")
         {
             PatchOpenXrSettings(assembly);
+            PatchOpenXrHapticControlLayouts(assembly);
         }
     }
 
@@ -64,6 +65,95 @@ public class Patcher
         }
 
         Console.WriteLine("[NOVR.Patcher] Patched OpenXRSettings to force MultiPass.");
+    }
+
+    private static void PatchOpenXrHapticControlLayouts(AssemblyDefinition assembly)
+    {
+        var patchedCount = 0;
+
+        foreach (var type in AllTypes(assembly.MainModule.Types))
+        {
+            foreach (var property in type.Properties)
+            {
+                if (property.PropertyType.FullName != "UnityEngine.XR.OpenXR.Input.HapticControl")
+                {
+                    continue;
+                }
+
+                patchedCount += PatchInputControlHapticLayout(property.CustomAttributes, assembly.MainModule.TypeSystem.String);
+            }
+
+            foreach (var field in type.Fields)
+            {
+                if (field.FieldType.FullName != "UnityEngine.XR.OpenXR.Input.HapticControl")
+                {
+                    continue;
+                }
+
+                patchedCount += PatchInputControlHapticLayout(field.CustomAttributes, assembly.MainModule.TypeSystem.String);
+            }
+        }
+
+        Console.WriteLine($"[NOVR.Patcher] Patched {patchedCount} OpenXR haptic InputControl layout attribute(s).");
+    }
+
+    private static IEnumerable<TypeDefinition> AllTypes(IEnumerable<TypeDefinition> types)
+    {
+        foreach (var type in types)
+        {
+            yield return type;
+
+            foreach (var nestedType in AllTypes(type.NestedTypes))
+            {
+                yield return nestedType;
+            }
+        }
+    }
+
+    private static int PatchInputControlHapticLayout(
+        Mono.Collections.Generic.Collection<CustomAttribute> customAttributes,
+        TypeReference stringType)
+    {
+        var patchedCount = 0;
+
+        foreach (var attribute in customAttributes.Where(attribute =>
+                     attribute.AttributeType.FullName == "UnityEngine.InputSystem.Layouts.InputControlAttribute"))
+        {
+            if (SetStringAttributeProperty(attribute, "layout", "Haptic", stringType))
+            {
+                patchedCount++;
+            }
+        }
+
+        return patchedCount;
+    }
+
+    private static bool SetStringAttributeProperty(
+        CustomAttribute attribute,
+        string propertyName,
+        string propertyValue,
+        TypeReference stringType)
+    {
+        var argument = new CustomAttributeArgument(stringType, propertyValue);
+
+        for (var propertyIndex = 0; propertyIndex < attribute.Properties.Count; propertyIndex++)
+        {
+            if (attribute.Properties[propertyIndex].Name != propertyName)
+            {
+                continue;
+            }
+
+            if (attribute.Properties[propertyIndex].Argument.Value as string == propertyValue)
+            {
+                return false;
+            }
+
+            attribute.Properties[propertyIndex] = new Mono.Cecil.CustomAttributeNamedArgument(propertyName, argument);
+            return true;
+        }
+
+        attribute.Properties.Add(new Mono.Cecil.CustomAttributeNamedArgument(propertyName, argument));
+        return true;
     }
 
     private static void ForceMultiPass(MethodDefinition method, FieldDefinition renderModeField, TypeDefinition openXrSettingsType)
@@ -282,7 +372,7 @@ public class Patcher
         foreach (var file in dir.GetFiles())
         {
             var targetFilePath = Path.Combine(destinationDir, file.Name);
-            file.CopyTo(targetFilePath, true);
+            CopyFileIfNeeded(file, targetFilePath);
         }
 
         foreach (var subDir in dirs)
@@ -292,6 +382,33 @@ public class Patcher
         }
 
         Console.WriteLine($"Copied files from:\n> {sourceDir}\nto:\n> {destinationDir}");
+    }
+
+    private static void CopyFileIfNeeded(FileInfo sourceFile, string targetFilePath)
+    {
+        if (File.Exists(targetFilePath))
+        {
+            var targetFile = new FileInfo(targetFilePath);
+            if (targetFile.Length == sourceFile.Length &&
+                targetFile.LastWriteTimeUtc == sourceFile.LastWriteTimeUtc)
+            {
+                Console.WriteLine($"Skipping unchanged file `{targetFilePath}`");
+                return;
+            }
+        }
+
+        try
+        {
+            sourceFile.CopyTo(targetFilePath, true);
+        }
+        catch (IOException exception)
+        {
+            Console.WriteLine($"Failed to copy `{sourceFile.FullName}` to `{targetFilePath}`. The file may already be loaded by the game; keeping the existing file. Exception: `{exception}`");
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            Console.WriteLine($"Failed to copy `{sourceFile.FullName}` to `{targetFilePath}`. The file may be locked or read-only; keeping the existing file. Exception: `{exception}`");
+        }
     }
 
 #if CPP

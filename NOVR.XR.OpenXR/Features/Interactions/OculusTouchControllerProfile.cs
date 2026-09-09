@@ -182,12 +182,6 @@ namespace UnityEngine.XR.OpenXR.Features.Interactions
             public QuaternionControl pointerRotation { get; private set; }
 
             /// <summary>
-            /// A <see cref="HapticControl"/> that represents the <see cref="OculusTouchControllerProfile.haptic"/> binding.
-            /// </summary>
-            [Preserve, InputControl(usage = "Haptic")]
-            public HapticControl haptic { get; private set; }
-
-            /// <summary>
             /// Internal call used to assign controls to the the correct element.
             /// </summary>
             protected override void FinishSetup()
@@ -217,8 +211,6 @@ namespace UnityEngine.XR.OpenXR.Features.Interactions
                 deviceRotation = GetChildControl<QuaternionControl>("deviceRotation");
                 pointerPosition = GetChildControl<Vector3Control>("pointerPosition");
                 pointerRotation = GetChildControl<QuaternionControl>("pointerRotation");
-
-                haptic = GetChildControl<HapticControl>("haptic");
             }
         }
 

@@ -15,6 +15,7 @@
         <TargetFramework>net48</TargetFramework>
         <RootNamespace>UnityEngine.XR.OpenXR</RootNamespace>
         <AssemblyName>Unity.XR.OpenXR</AssemblyName>
+        <DefineConstants>$(DefineConstants);USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup Condition=" '$(NuclearOptionGameDirResolved)' == 'NUCLEAR_OPTION_NOT_FOUND' ">

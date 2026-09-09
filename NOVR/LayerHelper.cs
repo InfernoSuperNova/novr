@@ -37,11 +37,14 @@ public static class LayerHelper
         
         
         // Ours
+        VrUiClippedHud = 29,
         VrUi = 30,
         VrUiCapture = 31,
     }
 
     public static Layers GetVrUiLayer() => Layers.VrUi;
+
+    public static Layers GetVrUiClippedHudLayer() => Layers.VrUiClippedHud;
 
     public static Layers GetVrUiCaptureLayer() => Layers.VrUiCapture;
 

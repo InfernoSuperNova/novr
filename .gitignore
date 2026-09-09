@@ -392,3 +392,10 @@ FodyWeavers.xsd
 build-output/
 dist/
 **/C:/
+
+# Agentic Development Environment
+.agents/
+docs/superpowers/
+.deep-diff/
+skills-lock.json
+.kilo/plans/

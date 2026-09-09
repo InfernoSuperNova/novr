@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVR.Installer", "NOVR.Inst
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVR.Build", "NOVR.Build\NOVR.Build.csproj", "{5C8DE940-7ECD-4B66-9711-52A03DCD6943}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVR.McpBridge", "NOVR.McpBridge\NOVR.McpBridge.csproj", "{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|Any CPU = Release|Any CPU
@@ -110,6 +112,18 @@ Global
 		{5C8DE940-7ECD-4B66-9711-52A03DCD6943}.Debug|x64.Build.0 = Debug|Any CPU
 		{5C8DE940-7ECD-4B66-9711-52A03DCD6943}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{5C8DE940-7ECD-4B66-9711-52A03DCD6943}.Debug|x86.Build.0 = Debug|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Release|x64.ActiveCfg = Release|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Release|x64.Build.0 = Release|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Release|x86.ActiveCfg = Release|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Release|x86.Build.0 = Release|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Debug|x64.Build.0 = Debug|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0749F2CD-3081-4EEC-B62F-ABBC3BF756F7}.Debug|x86.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

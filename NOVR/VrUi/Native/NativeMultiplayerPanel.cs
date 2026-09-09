@@ -48,6 +48,7 @@ public class NativeMultiplayerPanel : MonoBehaviour
     private readonly List<Text> _hostMissionButtonTexts = new();
 
     private NativeGameActionAdapter? _actions;
+    private Action? _missionLaunchStarted;
     private RectTransform? _container;
     private RectTransform? _browserListPanel;
     private RectTransform? _detailsPanel;
@@ -102,9 +103,10 @@ public class NativeMultiplayerPanel : MonoBehaviour
     private float _nextSourceRefreshTime;
     private bool _wasVisible;
 
-    public void Initialize(NativeGameActionAdapter actions, RectTransform root)
+    public void Initialize(NativeGameActionAdapter actions, RectTransform root, Action missionLaunchStarted)
     {
         _actions = actions;
+        _missionLaunchStarted = missionLaunchStarted;
         _font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         BuildLayout(root);
     }
@@ -960,6 +962,7 @@ public class NativeMultiplayerPanel : MonoBehaviour
                 MaxConnections = maxPlayers - 1,
                 Password = hasPassword ? password : null
             };
+            _missionLaunchStarted?.Invoke();
             await NetworkManagerNuclearOption.i.StartHostAsync(options);
         }
         catch (Exception exception)
@@ -1019,6 +1022,7 @@ public class NativeMultiplayerPanel : MonoBehaviour
 
         if (_actions?.TryJoinLobby(lobby.Lobby, null, promptIfPasswordNeeded: false) == true)
         {
+            _missionLaunchStarted?.Invoke();
             SetStatus($"Joining {lobby.LobbyName}.");
         }
         else
@@ -1091,6 +1095,7 @@ public class NativeMultiplayerPanel : MonoBehaviour
         HidePasswordPanel();
         if (_actions?.TryJoinLobby(lobby.Lobby, password, promptIfPasswordNeeded: false) == true)
         {
+            _missionLaunchStarted?.Invoke();
             SetStatus($"Joining {lobby.LobbyName}.");
         }
         else

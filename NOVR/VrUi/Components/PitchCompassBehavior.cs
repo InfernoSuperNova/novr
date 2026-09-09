@@ -13,11 +13,12 @@ public class PitchCompassBehavior : MonoBehaviour
     private const float PitchStepDegrees = PitchRangeDegrees / FullPitchStepCount;
     private const string SliceRootName = "NOVR_PitchCompassSlices";
 
-    private static readonly FieldInfo PitchCompassField = AccessTools.Field(typeof(global::FlightHud), "pitchCompass");
-    private static readonly FieldInfo CockpitTransformField = AccessTools.Field(typeof(global::FlightHud), "cockpitTransform");
+    private static readonly FieldInfo PitchCompassField = AccessTools.Field(typeof(FlightHud), "pitchCompass");
+    private static readonly FieldInfo CockpitTransformField = AccessTools.Field(typeof(FlightHud), "cockpitTransform");
 
     private RawImage _sourcePitchCompass;
     private RectTransform _sliceRoot;
+    private Material _depthTestedMaterial;
     private float _fullTextureDisplayHeight;
     private bool _hasBuiltSlices;
     
@@ -55,7 +56,7 @@ public class PitchCompassBehavior : MonoBehaviour
         
         _sourcePitchCompass.enabled = false;
     }
-    
+
 
     
     private void BuildSlices()
@@ -64,7 +65,7 @@ public class PitchCompassBehavior : MonoBehaviour
         {
             return;
         }
-        _flightHud = GetComponent<global::FlightHud>();
+        _flightHud = GetComponent<FlightHud>();
         if (_flightHud == null)
         {
             Debug.LogWarning($"{nameof(PitchCompassBehavior)}: Could not find FlightHud on {name}");
@@ -118,7 +119,10 @@ public class PitchCompassBehavior : MonoBehaviour
             opposite.transform.localScale = new Vector3(0.8f, 0.8f, 0.8f);
         }
         
-        LayerHelper.SetLayerRecursive(_sliceRoot, LayerHelper.GetVrUiLayer());
+        // The slices live on their own layer so only the depth-testing ClippedHudCamera
+        // renders them: cockpit geometry occludes them, leaving the ladder visible only
+        // through the windscreen.
+        LayerHelper.SetLayerRecursive(_sliceRoot, LayerHelper.GetVrUiClippedHudLayer());
 
         _hasBuiltSlices = true;
         Debug.Log($"{nameof(PitchCompassBehavior)}: Split pitch compass into {SliceCount} slices");
@@ -149,8 +153,10 @@ public class PitchCompassBehavior : MonoBehaviour
             Destroy(existing.gameObject);
         }
 
-        var root = new GameObject(SliceRootName, typeof(RectTransform)).GetComponent<RectTransform>();
-        
+        // The nested Canvas makes the slices a separate render batch culled by the slice
+        // root's own layer, instead of the parent FlightHud canvas layer.
+        var root = new GameObject(SliceRootName, typeof(RectTransform), typeof(Canvas)).GetComponent<RectTransform>();
+
         root.SetParent(_flightHud.transform, false);
         root.anchorMin = sourceRectTransform.anchorMin;
         root.anchorMax = sourceRectTransform.anchorMax;
@@ -189,7 +195,7 @@ public class PitchCompassBehavior : MonoBehaviour
         var sliceImage = sliceObject.GetComponent<RawImage>();
         sliceImage.texture = sourceTexture;
         sliceImage.color = _sourcePitchCompass.color;
-        sliceImage.material = _sourcePitchCompass.material;
+        sliceImage.material = GetDepthTestedMaterial();
         sliceImage.raycastTarget = false;
         sliceImage.uvRect = new Rect(0f, normalizedSliceBottom, 1f, normalizedSliceHeight);
         return sliceObject;
@@ -238,8 +244,36 @@ public class PitchCompassBehavior : MonoBehaviour
         var halfImage = halfObject.GetComponent<RawImage>();
         halfImage.texture = sourceTexture;
         halfImage.color = _sourcePitchCompass.color;
-        halfImage.material = _sourcePitchCompass.material;
+        halfImage.material = GetDepthTestedMaterial();
         halfImage.raycastTarget = false;
         halfImage.uvRect = new Rect(0f, normalizedUvBottom, 1f, normalizedHalfHeight);
+    }
+
+    // Sprites/Default declares no ZTest state, so it depth-tests with the LEqual default,
+    // unlike the game's HUD shader which renders with ZTest Always.
+    private Material GetDepthTestedMaterial()
+    {
+        if (_depthTestedMaterial != null)
+        {
+            return _depthTestedMaterial;
+        }
+
+        var shader = Shader.Find("Sprites/Default");
+        if (shader == null)
+        {
+            Debug.LogWarning($"{nameof(PitchCompassBehavior)}: Sprites/Default not found, cockpit geometry will not occlude the pitch compass");
+            return _sourcePitchCompass.material;
+        }
+
+        _depthTestedMaterial = new Material(shader) { name = "NOVR_PitchCompass_DepthTested" };
+        return _depthTestedMaterial;
+    }
+
+    private void OnDestroy()
+    {
+        if (_depthTestedMaterial != null)
+        {
+            Destroy(_depthTestedMaterial);
+        }
     }
 }

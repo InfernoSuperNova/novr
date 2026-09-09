@@ -1,9 +1,8 @@
 ﻿#if CPP
 using Il2CppSystem.Collections.Generic;
 #else
-using System.Collections.Generic;
-#endif
 using UnityEngine;
+#endif
 
 namespace NOVR.VrCamera;
 

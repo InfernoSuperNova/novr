@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net48</TargetFramework>
+        <Nullable>enable</Nullable>
+        <Platforms>AnyCPU</Platforms>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <LangVersion>10</LangVersion>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+        <DebugType>none</DebugType>
+        <OutputPath>$(BuildOutputDir)/plugins</OutputPath>
+        <GameDeployPath>$(NuclearOptionPluginDeployPath)</GameDeployPath>
+        <RootNamespace>NOVR.McpBridge</RootNamespace>
+        <AssemblyName>NOVR.McpBridge</AssemblyName>
+        <NoWarn>CS1591</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <Reference Include="Valve.Newtonsoft.Json">
+            <HintPath>$(MSBuildThisFileDirectory)..\lib\Valve.Newtonsoft.Json.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+</Project>

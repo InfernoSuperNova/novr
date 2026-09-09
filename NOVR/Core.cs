@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NOVR.VrCamera;
 using NOVR.VrTogglers;
 using NOVR.VrUi;
+using NOVR.VrUi.Native;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
@@ -12,6 +14,7 @@ namespace NOVR;
 
 public class Core : MonoBehaviour
 {
+    private static bool _isApplicationQuitting;
     
     private float _originalFixedDeltaTime;
 
@@ -23,6 +26,8 @@ public class Core : MonoBehaviour
     private Aircraft _aircraft;
     private Aircraft _oldAircraft;
 
+    public static string CurrentAircraftId { get; private set; }
+
     public static void Create()
     {
         new GameObject("NOVR").AddComponent<Core>();
@@ -30,21 +35,40 @@ public class Core : MonoBehaviour
 
     private void Awake()
     {
+        Application.quitting -= HandleApplicationQuitting;
+        Application.quitting += HandleApplicationQuitting;
         DontDestroyOnLoad(gameObject);
         gameObject.AddComponent<VrCameraManager>();
         gameObject.AddComponent<APIBus>();
+if (NOVRPlugin.LogSource != null)
+            NOVRPlugin.LogSource.LogMessage($"[Core Awake] New Core instance created. name={name}");
+        EnsureNativeMenuEnvironmentAssetCache();
+    }
+
+    private static void HandleApplicationQuitting()
+    {
+        _isApplicationQuitting = true;
+    }
+
+    private void OnApplicationQuit()
+    {
+        _isApplicationQuitting = true;
     }
 
     private void OnDestroy()
     {
+        if (NOVRPlugin.LogSource != null)
+            NOVRPlugin.LogSource.LogMessage("[Core OnDestroy] NOVR has been destroyed. This shouldn't have happened. Recreating...");
+        if (_isApplicationQuitting) return;
+
         Debug.Log("NOVR has been destroyed. This shouldn't have happened. Recreating...");
-        
+
         Create();
     }
 
     private void Start()
     {
-        
+        EnsureNativeMenuEnvironmentAssetCache();
         
         var xrDeviceType = Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.XRModule") ??
                            Type.GetType("UnityEngine.XR.XRDevice, UnityEngine.VRModule") ??
@@ -55,6 +79,12 @@ public class Core : MonoBehaviour
         
         _headsetData = NOVRBehaviour.Create<NOVRHeadsetData>(transform);
         _vrUi = NOVRBehaviour.Create<NOUIManager>(transform);
+
+        if (ModConfiguration.Instance.LogXrStartupDiagnostics.Value &&
+            gameObject.GetComponent<XrStartupDiagnosticsBehaviour>() == null)
+        {
+            gameObject.AddComponent<XrStartupDiagnosticsBehaviour>();
+        }
         
         _vrTogglerManager = new VrTogglerManager();
         
@@ -64,7 +94,19 @@ public class Core : MonoBehaviour
 
     private void Update()
     {
+        EnsureNativeMenuEnvironmentAssetCache();
         UpdatePhysicsRate();
+    }
+
+    private void EnsureNativeMenuEnvironmentAssetCache()
+    {
+        if (NativeMenuEnvironmentAssetCache.Instance != null ||
+            gameObject.GetComponent<NativeMenuEnvironmentAssetCache>() != null)
+        {
+            return;
+        }
+
+        gameObject.AddComponent<NativeMenuEnvironmentAssetCache>();
     }
 
     private void UpdatePhysicsRate()
@@ -87,8 +129,23 @@ public class Core : MonoBehaviour
     {
         _oldAircraft = _aircraft;
         GameManager.GetLocalAircraft(out _aircraft);
-        if (_aircraft != _oldAircraft) NOVRHeadsetData.CalibrateTranslation();
+        if (_aircraft != _oldAircraft)
+        {
+            CurrentAircraftId = ResolveAircraftId(_aircraft);
+            if (ModConfiguration.Instance.TryGetSavedOffset(CurrentAircraftId, out var f, out var r))
+            {
+                ModConfiguration.Instance.CockpitHeadForwardOffset.Value = f;
+                ModConfiguration.Instance.CockpitHeadRightOffset.Value = r;
+            }
+            NOVRHeadsetData.CalibrateTranslation();
+        }
         CameraStateManager.enableMouseLook = false;
+    }
+
+    private static string ResolveAircraftId(Aircraft aircraft)
+    {
+        if (aircraft == null || aircraft.definition == null) return null;
+        return Regex.Replace(aircraft.definition.name, "[^a-zA-Z0-9_]", "_");
     }
 
 }
