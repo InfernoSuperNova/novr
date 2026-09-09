@@ -17,6 +17,31 @@ public class CameraCockpitStatePatch
         {
             PanViewField.SetValue(__instance, 0.0f);
             TiltViewField.SetValue(__instance, 0.0f);
+
+            if (GameManager.flightControlsEnabled && !DynamicMap.mapMaximized)
+            {
+                VrZoomController.UpdateZoomInput(GameManager.playerInput.GetAxis("Zoom View"));
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(CameraCockpitState), "EnterState")]
+    private static class EnterStatePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix()
+        {
+            VrZoomController.ResetZoom();
+        }
+    }
+
+    [HarmonyPatch(typeof(CameraCockpitState), "LeaveState")]
+    private static class LeaveStatePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix()
+        {
+            VrZoomController.ResetZoom();
         }
     }
 }

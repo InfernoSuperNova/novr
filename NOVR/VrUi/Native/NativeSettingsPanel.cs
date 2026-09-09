@@ -269,6 +269,9 @@ public class NativeSettingsPanel : MonoBehaviour
     private void RenderControlsTab()
     {
         AddActionRow("Control Bindings", "VIEW", () => SelectTab(SettingsTab.Bindings));
+        AddFloatRow("VR Zoom Speed", () => ModConfiguration.Instance.ZoomSpeed.Value, value => ModConfiguration.Instance.ZoomSpeed.Value = value, 0.1f, 20f, 0.1f, value => $"{value:0.0}x/s");
+        AddFloatRow("VR Maximum Zoom", () => ModConfiguration.Instance.MaximumZoom.Value, value => ModConfiguration.Instance.MaximumZoom.Value = value, 1f, 10f, 0.25f, value => $"{value:0.##}x");
+        AddToggleRow("VR Instant Zoom Out", () => ModConfiguration.Instance.InstantZoomOut.Value, value => ModConfiguration.Instance.InstantZoomOut.Value = value);
         AddToggleRow("Virtual Joystick", () => PlayerSettings.virtualJoystickEnabled, value => SetPlayerBool("VirtualJoystickEnabled", value, static assigned => PlayerSettings.virtualJoystickEnabled = assigned, apply: true));
         AddToggleRow("Invert Virtual Pitch", () => PlayerSettings.virtualJoystickInvertPitch, value => SetPlayerBool("VirtualJoystickInvertPitch", value, static assigned => PlayerSettings.virtualJoystickInvertPitch = assigned, apply: true));
         AddToggleRow("Invert View Pitch", () => PlayerSettings.viewInvertPitch, value => SetPlayerBool("ViewInvertPitch", value, static assigned => PlayerSettings.viewInvertPitch = assigned, apply: true));

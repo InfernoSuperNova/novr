@@ -3,6 +3,7 @@ using System;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 #endif
 using System.Collections.Generic;
+using NOVR.GameplayPatches;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -109,6 +110,8 @@ public class VrCameraManager: MonoBehaviour
 
         IgnoredCameras.Add(rootCamera);
         IgnoredCameras.Add(trackedCamera);
+
+        DetailRendererVrCameraFix.BindToTrackedCamera(trackedCamera);
     }
 
     private static void EnsureTrackedMainCameraRig(Camera rootCamera, Camera trackedCamera)
@@ -140,6 +143,8 @@ public class VrCameraManager: MonoBehaviour
 
         IgnoredCameras.Add(rootCamera);
         IgnoredCameras.Add(trackedCamera);
+
+        DetailRendererVrCameraFix.BindToTrackedCamera(trackedCamera);
     }
 
     private void HandleChildCameras(Camera parentCamera)
