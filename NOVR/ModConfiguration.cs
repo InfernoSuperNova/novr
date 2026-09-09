@@ -17,6 +17,9 @@ public class ModConfiguration
     public readonly ConfigEntry<float> NativeMenuScale;
     public readonly ConfigEntry<float> NativeMenuDistance;
     public readonly ConfigEntry<float> NativeMenuHeightOffset;
+    public readonly ConfigEntry<float> ZoomSpeed;
+    public readonly ConfigEntry<float> MaximumZoom;
+    public readonly ConfigEntry<bool> InstantZoomOut;
     public readonly ConfigEntry<string> CursorInputMode;
     public readonly ConfigEntry<bool> EnableNativeMenuEnvironment;
     public readonly ConfigEntry<bool> EnableExperimentalSteamVrControllerProfiles;
@@ -67,6 +70,27 @@ public class ModConfiguration
             0.0f,
             "Vertical offset in meters applied when NOVR's native VR menu UI is opened or recentered. Values from -0.25 to 1.0 are supported.");
 
+        ZoomSpeed = config.Bind(
+            "VR Zoom",
+            "Zoom Speed",
+            2.0f,
+            new ConfigDescription(
+                "How quickly headset magnification changes while Zoom View is held, in magnification units per second.",
+                new AcceptableValueRange<float>(0.1f, 20.0f)));
+
+        MaximumZoom = config.Bind(
+            "VR Zoom",
+            "Maximum Zoom",
+            4.0f,
+            new ConfigDescription(
+                "Maximum binocular-style headset magnification.",
+                new AcceptableValueRange<float>(1.0f, 10.0f)));
+
+        InstantZoomOut = config.Bind(
+            "VR Zoom",
+            "Instant Zoom Out",
+            false,
+            "When enabled, any Zoom View out input immediately returns the headset view to 1x magnification.");
         CursorInputMode = config.Bind(
             "Experimental",
             "Cursor Input Mode",
