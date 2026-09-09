@@ -22,7 +22,7 @@ namespace NOVR;
 [BepInPlugin(
     "deltawing.novr",
     "NOVR",
-    "0.4.3")]
+    "0.4.4")]
 public class NOVRPlugin : BaseUnityPlugin
 {
     public static ManualLogSource LogSource => _instance?.Logger;

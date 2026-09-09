@@ -136,10 +136,9 @@ internal static class AirbaseOverlayPatch
         var runwayVelocity = runwayUsage.Value.Runway.GetVelocity();
         var closingSpeed = Vector3.Dot(aircraft.rb.velocity - runwayVelocity, (runwayEndPosition - aircraft.transform.position).normalized);
         var timeToRunwayEnd = distanceToRunwayEnd / closingSpeed;
-        var aimPointWorldPosition = runwayUsage.Value.Runway.GetGlideslopeAimpoint(
+        var aimPointWorldPosition = runwayUsage.Value.GetGlideslopeAimpoint(
             aircraft,
             distanceToRunwayEnd * 0.9f,
-            runwayUsage.Value.Reverse,
             timeToRunwayEnd * 0.9f);
 
         if (!VrHudProjectionHelper.TryProjectToCockpitHud(runwayEndPosition, out var runwayEndHudPosition) ||
