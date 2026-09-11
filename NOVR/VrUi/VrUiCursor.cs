@@ -209,7 +209,7 @@ public class VrUiCursor: NOVRBehaviour
         Vector3 worldDirection = referenceRotation * localDirection;
         Vector3 viewportSpace = camera.WorldToViewportPoint(camera.transform.position + worldDirection * DefaultProjectionDistance, Camera.MonoOrStereoscopicEye.Mono);
         Vector2 inScreenSpace = new Vector2(viewportSpace.x * Screen.width, viewportSpace.y * Screen.height);
-        float cursorDistance = GetDistanceUnderCursor(inScreenSpace);
+        float cursorDistance = GetDistanceUnderCursor(inScreenSpace, worldDirection);
         Vector3 pos = camera.transform.position + worldDirection * cursorDistance;
         _cursor.transform.position = pos;
         _cursor.transform.rotation = Quaternion.LookRotation(worldDirection, camera.transform.up);
@@ -259,9 +259,14 @@ public class VrUiCursor: NOVRBehaviour
     }
 
 
-    private float GetDistanceUnderCursor(Vector2 screenPos)
+    private float GetDistanceUnderCursor(Vector2 screenPos, Vector3 worldDirection)
     {
         _cursorOverInteractive = false;
+        if (TryGetDynamicMapDistance(screenPos, worldDirection, out var mapDistance))
+        {
+            return mapDistance;
+        }
+
         if (TryGetUiDistanceUnderCursor(screenPos, out var uiDistance, out var overInteractive))
         {
             _cursorOverInteractive = overInteractive;
@@ -269,6 +274,56 @@ public class VrUiCursor: NOVRBehaviour
         }
 
         return DefaultProjectionDistance;
+    }
+
+    private bool TryGetDynamicMapDistance(Vector2 screenPos, Vector3 worldDirection, out float distance)
+    {
+        distance = 0f;
+
+        var camera = UiCamera;
+        var dynamicMap = global::SceneSingleton<global::DynamicMap>.i;
+
+        if (camera == null ||
+            dynamicMap == null ||
+            dynamicMap.mapBackground == null ||
+            dynamicMap.mapImage == null)
+        {
+            return false;
+        }
+
+        if (!dynamicMap.mapBackground.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        var mapBackgroundRect = dynamicMap.mapBackground.rectTransform;
+
+        if (!RectTransformUtility.RectangleContainsScreenPoint(
+            mapBackgroundRect,
+            screenPos,
+            camera))
+        {
+            return false;
+        }
+
+        var mapRect = dynamicMap.mapImage.GetComponent<RectTransform>();
+
+        var mapPlane = new Plane(
+            mapRect.forward,
+            mapRect.position);
+
+        var cursorRay = new Ray(
+            camera.transform.position,
+            worldDirection.normalized);
+
+        if (!mapPlane.Raycast(cursorRay, out var enter) || enter <= 0f)
+        {
+            return false;
+        }
+
+        distance = enter - 0.01f;
+
+        return true;
     }
 
     private bool TryGetUiDistanceUnderCursor(Vector2 screenPos, out float distance, out bool overInteractive)
