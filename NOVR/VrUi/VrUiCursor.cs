@@ -209,7 +209,7 @@ public class VrUiCursor: NOVRBehaviour
         Vector3 worldDirection = referenceRotation * localDirection;
         Vector3 viewportSpace = camera.WorldToViewportPoint(camera.transform.position + worldDirection * DefaultProjectionDistance, Camera.MonoOrStereoscopicEye.Mono);
         Vector2 inScreenSpace = new Vector2(viewportSpace.x * Screen.width, viewportSpace.y * Screen.height);
-        float cursorDistance = GetDistanceUnderCursor(inScreenSpace);
+        float cursorDistance = GetDistanceUnderCursor(inScreenSpace, new Ray(camera.transform.position, worldDirection), camera);
         Vector3 pos = camera.transform.position + worldDirection * cursorDistance;
         _cursor.transform.position = pos;
         _cursor.transform.rotation = Quaternion.LookRotation(worldDirection, camera.transform.up);
@@ -259,19 +259,27 @@ public class VrUiCursor: NOVRBehaviour
     }
 
 
-    private float GetDistanceUnderCursor(Vector2 screenPos)
+    // The cursor must sit on the surface it points at; at any other depth each eye sees it shifted
+    // relative to that surface, even though clicks (resolved along the centre ray) are correct.
+    private float GetDistanceUnderCursor(Vector2 screenPos, Ray cursorRay, Camera camera)
     {
         _cursorOverInteractive = false;
-        if (TryGetUiDistanceUnderCursor(screenPos, out var uiDistance, out var overInteractive))
+        if (TryGetUiDistanceUnderCursor(screenPos, cursorRay, out var uiDistance, out var overInteractive))
         {
             _cursorOverInteractive = overInteractive;
             return uiDistance;
         }
 
+        // The map image is not a raycast target, so empty map areas return no hits.
+        if (TryGetMapDistanceUnderCursor(screenPos, cursorRay, camera, out var mapDistance))
+        {
+            return mapDistance;
+        }
+
         return DefaultProjectionDistance;
     }
 
-    private bool TryGetUiDistanceUnderCursor(Vector2 screenPos, out float distance, out bool overInteractive)
+    private bool TryGetUiDistanceUnderCursor(Vector2 screenPos, Ray cursorRay, out float distance, out bool overInteractive)
     {
         distance = default;
         overInteractive = false;
@@ -289,27 +297,42 @@ public class VrUiCursor: NOVRBehaviour
         var results = new List<RaycastResult>();
         EventSystem.current.RaycastAll(pointerEventData, results);
 
-        var camera = UiCamera;
-        Vector3 cameraPos = camera != null ? camera.transform.position : Vector3.zero;
-
         foreach (var result in results)
         {
-            if (result.gameObject == _cursor || 
-                result.distance < 0f ||
-                result.gameObject.GetComponentInParent<global::MapIcon>() != null)
+            if (result.gameObject == _cursor || result.distance < 0f)
+            {
+                continue;
+            }
+
+            if (!TryGetPlaneDistance(cursorRay, result.gameObject.transform, out distance))
             {
                 continue;
             }
 
             overInteractive = IsInteractiveRaycastTarget(result.gameObject);
-            distance = result.worldPosition == Vector3.zero
-                ? result.distance
-                : Vector3.Distance(cameraPos, result.worldPosition);
-
-            return distance > 0f;
+            return true;
         }
 
         return false;
+    }
+
+    private static bool TryGetMapDistanceUnderCursor(Vector2 screenPos, Ray cursorRay, Camera camera, out float distance)
+    {
+        distance = default;
+        var map = SceneSingleton<global::DynamicMap>.i;
+        if (map == null || map.mapBackground == null || !map.mapBackground.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        var background = map.mapBackground.rectTransform;
+        return RectTransformUtility.RectangleContainsScreenPoint(background, screenPos, camera) &&
+               TryGetPlaneDistance(cursorRay, background, out distance);
+    }
+
+    private static bool TryGetPlaneDistance(Ray ray, Transform surface, out float distance)
+    {
+        return new Plane(surface.forward, surface.position).Raycast(ray, out distance) && distance > 0f;
     }
 
     private static bool IsInteractiveRaycastTarget(GameObject gameObject)
@@ -470,6 +493,7 @@ public class VrUiCursor: NOVRBehaviour
                 RestrictActionToVirtualMouse(uiModule.middleClick?.action, _virtualMouse.path);
                 RestrictActionToVirtualMouse(uiModule.rightClick?.action, _virtualMouse.path);
                 RestrictActionToVirtualMouse(uiModule.scrollWheel?.action, _virtualMouse.path);
+                RestrictNavigationToKeyboardAndGamepad(uiModule.move?.action);
                 return true;
             }
             else
@@ -482,6 +506,21 @@ public class VrUiCursor: NOVRBehaviour
         {
             Debug.LogError($"[NOVR] Exception while restricting UI actions to VirtualMouse: {ex}");
             return false;
+        }
+    }
+
+    // Generic joystick / XR axes (HMD, controllers, HOTAS at rest) otherwise feed UI navigation like a held arrow key.
+    private static void RestrictNavigationToKeyboardAndGamepad(InputAction? action)
+    {
+        if (action == null) return;
+        for (int i = 0; i < action.bindings.Count; i++)
+        {
+            var binding = action.bindings[i];
+            if (binding.isComposite) continue;
+            var path = binding.path ?? string.Empty;
+            if (path.StartsWith("<Keyboard>") || path.StartsWith("<Gamepad>")) continue;
+            action.ApplyBindingOverride(i, string.Empty);
+            Debug.Log($"[NOVR] Disabled UI navigation binding '{path}' on action '{action.name}'");
         }
     }
 

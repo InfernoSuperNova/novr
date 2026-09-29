@@ -960,6 +960,14 @@ public class NativeSettingsPanel : MonoBehaviour
                 var actionRange = actionRanges[index];
                 if (IsActionRangeAssigned(assignedActionSlots, action.id, actionRange)) continue;
 
+                // Do not offer a whole axis while a half (e.g. a button for pitch up) is already bound.
+                if (actionRange == AxisRange.Full && action.type == InputActionType.Axis &&
+                    (assignedActionSlots.Contains(GetBindingActionSlotKey(action.id, AxisRange.Negative)) ||
+                     assignedActionSlots.Contains(GetBindingActionSlotKey(action.id, AxisRange.Positive))))
+                {
+                    continue;
+                }
+
                 _bindingEntries.Add(new BindingEntry(
                     controllerMap,
                     action,
@@ -1460,6 +1468,9 @@ public class NativeSettingsPanel : MonoBehaviour
 
         if (hasNegative || hasPositive)
         {
+            // Split axes (e.g. pitch up/down) can also take a whole stick axis, which is how the defaults bind them.
+            ranges.Add(AxisRange.Full);
+
             if (hasNegative)
             {
                 ranges.Add(AxisRange.Negative);
@@ -1499,6 +1510,13 @@ public class NativeSettingsPanel : MonoBehaviour
 
     private static AxisRange GetActionRange(ActionElementMap actionElementMap)
     {
+        // For buttons and keys axisRange is not the direction (it is stored as Full or Positive either way);
+        // the direction is axisContribution. Trusting axisRange marked the wrong half, or both, as taken.
+        if (actionElementMap.elementType != ControllerElementType.Axis)
+        {
+            return actionElementMap.axisContribution == Pole.Negative ? AxisRange.Negative : AxisRange.Positive;
+        }
+
         if (actionElementMap.axisRange == AxisRange.Full)
         {
             return AxisRange.Full;
