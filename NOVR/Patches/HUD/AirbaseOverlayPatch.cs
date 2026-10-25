@@ -58,7 +58,7 @@ internal static class AirbaseOverlayPatch
             if (!taxiingToRunway || reachedRunway || !runwayUsage.HasValue)
                 return;
 
-            markerWorldPosition = runwayUsage.Value.GetEnd().position;
+            markerWorldPosition = runwayUsage.Value.GetStart().position;
         }
 
         if (VrHudProjectionHelper.PinToScreenEdge(markerWorldPosition, out var markerHudPosition))
@@ -131,17 +131,17 @@ internal static class AirbaseOverlayPatch
             cockpitHudCamera == null || !glideslope.enabled)
             return;
 
-        var runwayEndPosition = runwayUsage.Value.GetEnd().position;
-        var distanceToRunwayEnd = FastMath.Distance(aircraft.transform.position, runwayEndPosition);
+        var touchdownPosition = runwayUsage.Value.GetTouchdownPoint().ToLocalPosition();
+        var distanceToTouchdown = FastMath.Distance(aircraft.transform.position, touchdownPosition);
         var runwayVelocity = runwayUsage.Value.Runway.GetVelocity();
-        var closingSpeed = Vector3.Dot(aircraft.rb.velocity - runwayVelocity, (runwayEndPosition - aircraft.transform.position).normalized);
-        var timeToRunwayEnd = distanceToRunwayEnd / closingSpeed;
+        var closingSpeed = Vector3.Dot(aircraft.rb.velocity - runwayVelocity, (touchdownPosition - aircraft.transform.position).normalized);
+        var timeToTouchdown = distanceToTouchdown / closingSpeed;
         var aimPointWorldPosition = runwayUsage.Value.GetGlideslopeAimpoint(
             aircraft,
-            distanceToRunwayEnd * 0.9f,
-            timeToRunwayEnd * 0.9f);
+            distanceToTouchdown * 0.9f,
+            timeToTouchdown * 0.9f);
 
-        if (!VrHudProjectionHelper.TryProjectToCockpitHud(runwayEndPosition, out var runwayEndHudPosition) ||
+        if (!VrHudProjectionHelper.TryProjectToCockpitHud(touchdownPosition, out var touchdownHudPosition) ||
             !VrHudProjectionHelper.TryProjectToCockpitHud(aimPointWorldPosition, out var aimPointHudPosition))
         {
             glideslope.enabled = false;
@@ -149,7 +149,7 @@ internal static class AirbaseOverlayPatch
             return;
         }
 
-        VrHudProjectionHelper.SetVerticalLine(glideslope.transform, runwayEndHudPosition, aimPointHudPosition, cockpitHudCamera, -8.0f);
+        VrHudProjectionHelper.SetVerticalLine(glideslope.transform, touchdownHudPosition, aimPointHudPosition, cockpitHudCamera, -8.0f);
         glideslopeAimPoint.transform.position = aimPointHudPosition;
         glideslopeAimPoint.transform.rotation = cockpitHudCamera.transform.rotation;
     }
